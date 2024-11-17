@@ -16,17 +16,21 @@ public static class SudokuGen
         void DrawLine() { Console.Write("\n  +"); for (int i = 0; i < p_sudoku.rows; ++i) Console.Write("----+"); }
         Console.Write("\t SUDOKU\n");
         DrawLine();
-        for (int i = 0; i < p_sudoku.squareUnits; ++i)
+        for (int i = 0; i < p_sudoku.squres; ++i)
         {
             if (i % p_sudoku.rows == 0) Console.Write("\n  ");
-            Console.Write($"| {(p_justIndexes ? i : (int)p_sudoku.solution[i]):00} ");
+            Console.Write($"| {(p_justIndexes ? i : p_sudoku.solution[i] == 0 ? "  " : p_sudoku.solution[i]):00} ");
             if (i % p_sudoku.rows + 1 == p_sudoku.rows) { Console.Write("|"); DrawLine(); }
         }
         Console.Write("\n");
     }
     public static void Main()
     {
+        //GetSudoku().Print(true);
         //GetSudoku().Find_Segment(37).Print();
-        GetSudoku().Print();
+        Sudoku _sudoku = GetSudoku();
+        _sudoku.Print();
+        _sudoku.Shuffle();
+        _sudoku.Print();
     }
 }
