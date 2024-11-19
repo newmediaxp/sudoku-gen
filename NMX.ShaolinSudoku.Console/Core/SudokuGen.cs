@@ -4,13 +4,7 @@ using System;
 
 public static class SudokuGen
 {
-    private static Sudoku GetSudoku() => Sudoku.Create(3);
-    private static Sudoku Find_Segment(this Sudoku p_sudoku, in int p_index)
-    {
-        int _startX = p_index / p_sudoku.rank * p_sudoku.rank, _startO = _startX - _startX / p_sudoku.rows % p_sudoku.rank * p_sudoku.rows;
-        for (int i = 0; i < p_sudoku.rows; ++i) p_sudoku.solution[_startO + i / p_sudoku.rank * p_sudoku.rows + i % p_sudoku.rank] = 11;
-        return p_sudoku;
-    }
+    private static Sudoku GetSudoku() => Sudoku.Create(4, 181);
     private static void Print(this Sudoku p_sudoku, bool p_justIndexes = false)
     {
         void DrawLine() { Console.Write("\n  +"); for (int i = 0; i < p_sudoku.rows; ++i) Console.Write("----+"); }
@@ -19,7 +13,7 @@ public static class SudokuGen
         for (int i = 0; i < p_sudoku.squares; ++i)
         {
             if (i % p_sudoku.rows == 0) Console.Write("\n  ");
-            Console.Write($"| {(p_justIndexes ? i : p_sudoku.solution[i] == 0 ? "  " : p_sudoku.solution[i]):00} ");
+            Console.Write($"| {(p_justIndexes ? i : p_sudoku.puzzle[i] == 0 ? "  " : p_sudoku.puzzle[i]):00} ");
             if (i % p_sudoku.rows + 1 == p_sudoku.rows) { Console.Write("|"); DrawLine(); }
         }
         Console.Write("\n");
