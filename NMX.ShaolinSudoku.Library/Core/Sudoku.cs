@@ -2,6 +2,7 @@
 {
     using System;
     using System.Collections.Generic;
+    using static Utility;
 
     public sealed class Sudoku
     {
@@ -9,7 +10,7 @@
         private readonly int segments, squaresInSegmentRow;
         public readonly int[] puzzle, solution;
         private readonly int[] altSol;
-        private static readonly Random random = new Random();
+
         private enum FillMode { NoInput, RandomRow, Uniqueness }
         public int Removed { get; private set; }
 
@@ -28,8 +29,7 @@
         public static Sudoku Create(in byte p_rank, in short p_remove)
         {
             Sudoku _sudoku = new Sudoku(p_rank, p_remove); _sudoku.FillAll();
-            //_sudoku.Shuffle();
-            _sudoku.Prune();
+            /*_sudoku.Shuffle();*/ _sudoku.Prune();
             return _sudoku;
         }
         public static Sudoku Solve(in int[] p_puzz)
@@ -38,28 +38,10 @@
             if (_rank * _rank * _rank * _rank != p_puzz.Length)
                 throw new InvalidOperationException("invalid puzzle length, could not determine rank");
             Sudoku _sudoku = new Sudoku(_rank, Count(p_puzz, 0)); _sudoku.Removed = _sudoku.remove;
-            Copy(p_puzz, _sudoku.puzzle);
-            if (!_sudoku.Valid()) throw new InvalidOperationException("invalid puzzle, duplicate inputs found");
-            Copy(_sudoku.puzzle, _sudoku.solution); _sudoku.FillRest();
+            if (!_sudoku.Valid(p_puzz)) throw new InvalidOperationException("invalid puzzle, duplicate inputs found");
+            Copy(p_puzz, _sudoku.puzzle); Copy(_sudoku.puzzle, _sudoku.solution); _sudoku.FillRest();
             if (!_sudoku.Unique()) throw new InvalidOperationException("invalid puzzle, no unique solution");
             return _sudoku;
-        }
-        private static void Copy(in int[] p_from, in int[] p_to) => Array.Copy(p_from, 0, p_to, 0, p_to.Length);
-        private static bool Same(in int[] p_arr1, in int[] p_arr2)
-        { for (int i = 0; i < p_arr1.Length; ++i) if (p_arr1[i] != p_arr2[i]) return false; return true; }
-        private static int Count(in int[] p_arr, in int p_input)
-        { int _count = 0; for (int i = 0; i < p_arr.Length; ++i) if (p_arr[i] == p_input) ++_count; return _count; }
-        private static void Swap3(in int[] p_arr, in int p_i1, in int p_i2, in int p_i3)
-        { int _temp = p_arr[p_i1]; p_arr[p_i1] = p_arr[p_i2]; p_arr[p_i2] = p_arr[p_i3]; p_arr[p_i3] = _temp; }
-        private static void Init(in int[] p_arr) { for (int i = 0; i <= p_arr.Length; ++i) p_arr[i] = 0; }
-        private static void Init(in List<int> p_list, in bool p_plus1)
-        { p_list.Clear(); for (int i = 0; i < p_list.Capacity; ++i) p_list.Add(p_plus1 ? i + 1 : i); }
-        private static int PopRandom(in List<int> p_list)
-        { int i = random.Next(p_list.Count); int _num = p_list[i]; p_list.RemoveAt(i); return _num; }
-        private static void InitRandom(in int[] p_arr, in List<int> p_inputs, in bool p_plus1)
-        {
-            Init(p_inputs, p_plus1); for (int i = 0; i < p_arr.Length; ++i)
-            { if (p_inputs.Count == 0) Init(p_inputs, p_plus1); p_arr[i] = PopRandom(p_inputs); }
         }
         private void Shuffle(in int[] p_arr)
         {
@@ -98,14 +80,22 @@
         }
         private bool Search_Segment(in int[] p_arr, in int p_input, in int p_idx)
         {
-            int _startX = p_idx / rank * rank, _startO = _startX - _startX / rows % rank * rows;
-            for (int i = 0; i < rows; ++i) if (i != p_idx && p_arr[_startO + i / rank * rows + i % rank] == p_input) return true;
+            for (int _startX = p_idx / rank * rank, _startO = _startX - _startX / rows % rank * rows,
+                _o, i = 0; i < rows; ++i)
+            {
+                _o = _startO + i / rank * rows + i % rank;
+                if (_o != p_idx && p_arr[_o] == p_input) return true;
+            }
             return false;
         }
         private bool Valid(in int[] p_arr)
         {
-            for (int i = 0; i < p_arr.Length; ++i) if (p_arr[i] > 0 && p_arr[i]! > rows
-                    && !Search_RowCol(p_arr, p_arr[i], i) && !Search_Segment(p_arr, p_arr[i], i)) return false;
+            for (int i = 0; i < p_arr.Length; ++i)
+            {
+                if (p_arr[i] == 0) continue;
+                if (p_arr[i] < 0 || p_arr[i] > rows
+                    || Search_RowCol(p_arr, p_arr[i], i) || Search_Segment(p_arr, p_arr[i], i)) return false;
+            }
             return true;
         }
         private void Set_DiagonalSegments(in int[] p_arr)
@@ -131,30 +121,22 @@
             }
             return false;
         }
-        private bool FillSequential(in int[] p_arr, in int[] p_rowInputs, int p_idx)
-        {
-            if (!(p_idx < squares)) return true;
-            while (p_arr[p_idx] != 0) { ++p_idx; if (!(p_idx < squares)) return true; }
-            for (int _input, _row = p_idx / rows, i = 0; i < rows; ++i)
-            {
-                _input = p_rowInputs[_row * rows + (i + 1) % rows];
-                if (Search_RowCol(p_arr, _input, p_idx) || Search_Segment(p_arr, _input, p_idx)) continue;
-                p_arr[p_idx] = _input; if (FillSequential(p_arr, p_rowInputs, p_idx + 1)) return true;
-                p_arr[p_idx] = 0;
-            }
-            return false;
-        }
-
         private void FillAll()
-        { 
+        {
             Set_DiagonalSegments(solution); InitRandom(altSol, new List<int>(rows), true);
-            //FillSequential(FillMode.RandomRow, 0);
-            FillSequential(solution, altSol, 0);
+            FillSequential(FillMode.RandomRow, 0);
+            if (Count(solution, 0) > 0) throw new InvalidOperationException("cannot create, logic error");
         }
         private void FillRest()
-            => FillSequential(FillMode.NoInput, 0);
+        {
+            FillSequential(FillMode.NoInput, 0);
+            if (Count(solution, 0) > 0) throw new InvalidOperationException("cannot solve, logic error");
+        }
         private bool Unique()
-        { Copy(puzzle, altSol); FillSequential(FillMode.Uniqueness, 0); return Same(altSol, solution); }
+        {
+            Copy(puzzle, altSol);
+            FillSequential(FillMode.Uniqueness, 0); return Same(altSol, solution);
+        }
         private void Prune()
         {
             int _idx, _input;
@@ -168,6 +150,5 @@
             }
         }
         private void Shuffle() => Shuffle(solution);
-        private bool Valid() => Valid(puzzle);
     }
 }

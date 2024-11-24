@@ -27,7 +27,7 @@ public static class SudokuGen
     }
     private static void Test()
     {
-        Sudoku.Create(3, 3*3*3*3).Print();
+        Sudoku.Create(3, 3 * 3 * 3 * 3).Print();
         //Sudoku.Create(3, 80).PrintFormatted();
         ////---
         //        int[] _puzz = new int[81]
@@ -40,16 +40,38 @@ public static class SudokuGen
     }
     private static void TestTimes()
     {
-        DateTime old_start = DateTime.Now;
+        DateTime _old_start = DateTime.Now;
         new SudokuOperations().GetSudoku(80);
-        DateTime old_end = DateTime.Now;
-        Console.WriteLine($"OldGen :\t{(old_end - old_start).TotalMilliseconds} ms");
-        DateTime new_start = DateTime.Now;
+        DateTime _old_end = DateTime.Now;
+        Console.WriteLine($"OldGen :\t{(_old_end - _old_start).TotalMilliseconds} ms");
+        DateTime _new_start = DateTime.Now;
         Sudoku.Create(3, 80);
-        DateTime new_end = DateTime.Now;
-        Console.WriteLine($"NewGen :\t{(new_end - new_start).TotalMilliseconds} ms");
+        DateTime _new_end = DateTime.Now;
+        Console.WriteLine($"NewGen :\t{(_new_end - _new_start).TotalMilliseconds} ms");
+    }
+    private static void TestAcuracy()
+    {
+        //bool _old_pass;
+        //{
+        //    SudokuOperations _sop = new();
+        //    int[] _all = _sop.GetSudoku(80);
+        //    int[] _puzz = new int[_all.Length]; int[] _sol = new int[_all.Length];
+        //    for (int i = 0; i < _all.Length; ++i) { _puzz[i] = _all[i] % 10; _sol[i] = _all[i] / 10; }
+        //    int[] _sol2 = _sop.SolveSudoku(_puzz);
+        //    _old_pass = Utility.Same(_sol, _sol2);
+        //}
+        //Console.WriteLine($"OldGen :\t{(_old_pass ? "pass" : "fail")}");
+        bool _new_pass;
+        {
+            Sudoku _sudoku = Sudoku.Create(3, 80);
+            //_sudoku.puzzle[0] = 6;s
+            Sudoku _sudoku2 = Sudoku.Solve(_sudoku.puzzle);
+            _new_pass = Utility.Same(_sudoku.solution, _sudoku2.solution);
+        }
+        Console.WriteLine($"NewGen :\t{(_new_pass ? "pass" : "fail")}");
     }
     public static void Main()
-        //=> Test();
-    => TestTimes();
+    //=> Test();
+    //=> TestTimes();
+    => TestAcuracy();
 }
