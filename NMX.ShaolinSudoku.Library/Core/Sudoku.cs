@@ -29,7 +29,8 @@
         public static Sudoku Create(in byte p_rank, in short p_remove)
         {
             Sudoku _sudoku = new Sudoku(p_rank, p_remove); _sudoku.FillAll();
-            /*_sudoku.Shuffle();*/ _sudoku.Prune();
+            /*_sudoku.Shuffle();*/
+            _sudoku.Prune();
             return _sudoku;
         }
         public static Sudoku Solve(in int[] p_puzz)
@@ -104,6 +105,26 @@
             for (int i = 0; i < squaresInSegmentRow; ++i)
             { if (_inputs.Count == 0) Init(_inputs, true); p_arr[i / rows * rank + i / rank * rows + i % rank] = PopRandom(_inputs); }
         }
+        //private int FillSequential(in FillMode p_mode, int p_idx) // optimised for performance boost, reduced branches
+        //{
+        //    if (!(p_idx < squares)) return 1;
+        //    int[] _arr = p_mode == FillMode.Uniqueness ? altSol : solution;
+        //    while (p_idx < squares && _arr[p_idx] != 0) ++p_idx;
+        //    if (!(p_idx < squares)) return 1;
+        //    int _return = 0;
+        //    for (int _startRow = p_idx / rows * rows, _input, i = 0; i < rows && _return == 0; ++i)
+        //    {
+        //        if (p_mode == FillMode.NoInput) _input = i + 1;
+        //        else if (p_mode == FillMode.RandomRow) _input = altSol[_startRow + i];
+        //        else if (p_mode == FillMode.Uniqueness)
+        //        { _input = solution[p_idx] + i + 1; _input += ((rows - _input) >> 31) * rows; }
+        //        else throw new InvalidOperationException("unknown fill mode");
+        //        if (Search_RowCol(_arr, _input, p_idx) || Search_Segment(_arr, _input, p_idx)) continue;
+        //        _arr[p_idx] = _input;
+        //        _arr[p_idx] = (_return = FillSequential(p_mode, p_idx + 1)) * _input;
+        //    }
+        //    return _return;
+        //}
         private bool FillSequential(in FillMode p_mode, int p_idx)
         {
             if (!(p_idx < squares)) return true;
@@ -121,21 +142,23 @@
             }
             return false;
         }
+        // ---
+        private void FillRemaining(in FillMode p_mode) => FillSequential(p_mode, 0);
         private void FillAll()
         {
             Set_DiagonalSegments(solution); InitRandom(altSol, new List<int>(rows), true);
-            FillSequential(FillMode.RandomRow, 0);
+            FillRemaining(FillMode.RandomRow);
             if (Count(solution, 0) > 0) throw new InvalidOperationException("cannot create, logic error");
         }
         private void FillRest()
         {
-            FillSequential(FillMode.NoInput, 0);
+            FillRemaining(FillMode.NoInput);
             if (Count(solution, 0) > 0) throw new InvalidOperationException("cannot solve, logic error");
         }
         private bool Unique()
         {
             Copy(puzzle, altSol);
-            FillSequential(FillMode.Uniqueness, 0); return Same(altSol, solution);
+            FillRemaining(FillMode.Uniqueness); return Same(altSol, solution);
         }
         private void Prune()
         {

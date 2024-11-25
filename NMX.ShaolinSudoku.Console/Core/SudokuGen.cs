@@ -27,6 +27,7 @@ public static class SudokuGen
     }
     private static void Test()
     {
+        //Sudoku.Create(2, 2 * 2 * 2 * 2).Print();
         Sudoku.Create(3, 3 * 3 * 3 * 3).Print();
         //Sudoku.Create(3, 80).PrintFormatted();
         ////---
@@ -40,12 +41,12 @@ public static class SudokuGen
     }
     private static void TestTimes()
     {
-        DateTime _old_start = DateTime.Now;
-        new SudokuOperations().GetSudoku(80);
-        DateTime _old_end = DateTime.Now;
-        Console.WriteLine($"OldGen :\t{(_old_end - _old_start).TotalMilliseconds} ms");
+        //DateTime _old_start = DateTime.Now;
+        //new SudokuOperations().GetSudoku(80);
+        //DateTime _old_end = DateTime.Now;
+        //Console.WriteLine($"OldGen :\t{(_old_end - _old_start).TotalMilliseconds} ms");
         DateTime _new_start = DateTime.Now;
-        Sudoku.Create(3, 80);
+        for (int i = 0; i < 1000; ++i) Sudoku.Create(3, 80);
         DateTime _new_end = DateTime.Now;
         Console.WriteLine($"NewGen :\t{(_new_end - _new_start).TotalMilliseconds} ms");
     }
@@ -72,6 +73,6 @@ public static class SudokuGen
     }
     public static void Main()
     //=> Test();
-    //=> TestTimes();
-    => TestAcuracy();
+    => TestTimes();
+    //=> TestAcuracy();
 }

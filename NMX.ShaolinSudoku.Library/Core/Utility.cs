@@ -1,4 +1,7 @@
-﻿namespace NMX.ShaolinSudoku.Library.Core
+﻿
+//  #1  num is int, { num >> 31 } gives -1 (when num < 0) or 0 (otherwise)  
+
+namespace NMX.ShaolinSudoku.Library.Core
 {
     using System;
     using System.Collections.Generic;
