@@ -1,10 +1,67 @@
-﻿namespace NMX.ShaolinSudoku.Console.Core;
+﻿namespace NMX.SudokuGen.Console.Core;
 using Library.Core;
 using System;
-using System.Timers;
 
 public static class SudokuGen
 {
+    private const string appName = nameof(SudokuGen), appVersion = "0.1",
+        cmdVersion = "version", cmdHelp = "help", cmdCreate = "create", cmdSolve = "solve",
+        flgRank = "-r", flgInput = "-i", flgOutput = "-o",
+        expRank = "3", expInput = "./inputs.txt", expOutput = "./outputs.txt",
+        expPuzzle = "/000000000/23234220423/40000234/23400000/2340000023/",
+        expSolution = "/6554675667/2323422234423/4234234/234234/23423423/";
+    private static readonly string
+        help = @$"
+=== {appName} usage info ===
+
+    commands -  
+        1. {cmdCreate} {'\t'}: creates sudoku
+        2. {cmdSolve}{'\t'}: solves sudoku
+        3. {cmdVersion}{'\t'}: shows app version
+        4. {cmdHelp}{'\t'}: shows usage info
+
+    options -
+        1. {flgRank}{'\t'}: specify rank of sudoku
+        2. {flgInput}{'\t'}: specify input .txt file
+        3. {flgOutput}{'\t'}: specify output .txt file
+
+    examples -
+        1. {cmdCreate} {flgRank} {expRank}
+        2. {cmdCreate} {flgInput} {expInput}
+        3. {cmdSolve} {expPuzzle}
+        4. {cmdSolve} {flgInput} {expInput} {flgOutput} {expOutput}
+    
+";
+    private static readonly string[] commands = [cmdCreate, cmdSolve, cmdVersion, cmdHelp];
+    private static readonly Dictionary<string, string?>
+        options = new() { { flgRank, null }, { flgInput, null }, { flgOutput, null } };
+
+    private static void ProcessOutput(in string p_output) => Console.WriteLine($"<< {p_output}");
+
+    private static void ProcessInput(in string[] p_inputs)
+    {
+        if (p_inputs == null) return;
+        static void HandleError(in string p_error) => Console.WriteLine($"Error: {p_error}");
+        string? a_command = null;
+        for (int i = 1, i_v = i + 1; i < p_inputs.Length; ++i, i_v = i + 1)
+        {
+            if (string.IsNullOrEmpty(p_inputs[i])) continue;
+            p_inputs[i] = p_inputs[i].ToLower();
+            //-- extract command
+            if (commands.Contains(p_inputs[i]))
+            {
+                if (!string.IsNullOrEmpty(a_command)) { HandleError($"multiple commands"); return; }
+                a_command = p_inputs[i];
+            }
+            //-- extract options
+            if (i_v < p_inputs.Length && options.ContainsKey(p_inputs[i]))
+            {
+                if (options[p_inputs[i]] != null) { HandleError($"duplicate option"); return; }
+                options[p_inputs[i]] = p_inputs[i_v];
+            }
+        }
+    }
+
     private static void PrintFormatted(this Sudoku p_sudoku, bool p_justIndexes = false)
     {
         void DrawLine() { Console.Write("\n  +"); for (int i = 0; i < p_sudoku.rows; ++i) Console.Write("----+"); }
@@ -46,7 +103,7 @@ public static class SudokuGen
         //DateTime _old_end = DateTime.Now;
         //Console.WriteLine($"OldGen :\t{(_old_end - _old_start).TotalMilliseconds} ms");
         DateTime _new_start = DateTime.Now;
-        for (int i = 0; i < 1000; ++i) Sudoku.Create(3, 80);
+        Sudoku.Create(3, 80);
         DateTime _new_end = DateTime.Now;
         Console.WriteLine($"NewGen :\t{(_new_end - _new_start).TotalMilliseconds} ms");
     }
@@ -71,8 +128,10 @@ public static class SudokuGen
         }
         Console.WriteLine($"NewGen :\t{(_new_pass ? "pass" : "fail")}");
     }
-    public static void Main()
+
+    public static void Main(string[] p_args)
+        => ProcessInput(p_args);
     //=> Test();
-    => TestTimes();
+    //=> TestTimes();
     //=> TestAcuracy();
 }
