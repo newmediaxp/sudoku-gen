@@ -1,4 +1,4 @@
-﻿namespace NMX.ShaolinSudoku.Library.Core
+﻿namespace NMX.SudokuGen.Library.Core
 {
     using System;
     using System.Collections.Generic;
@@ -105,7 +105,9 @@
             for (int i = 0; i < squaresInSegmentRow; ++i)
             { if (_inputs.Count == 0) Init(_inputs, true); p_arr[i / rows * rank + i / rank * rows + i % rank] = PopRandom(_inputs); }
         }
-        //private int FillSequential(in FillMode p_mode, int p_idx) // optimised for performance boost, reduced branches
+        // optimised for performance boost, reduced branches
+        // num is int, { num >> 31 } gives -1 (when num < 0) or 0 (otherwise)  
+        //private int FillSequential(in FillMode p_mode, int p_idx) 
         //{
         //    if (!(p_idx < squares)) return 1;
         //    int[] _arr = p_mode == FillMode.Uniqueness ? altSol : solution;
@@ -142,7 +144,6 @@
             }
             return false;
         }
-        // ---
         private void FillRemaining(in FillMode p_mode) => FillSequential(p_mode, 0);
         private void FillAll()
         {
