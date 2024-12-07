@@ -26,7 +26,7 @@
             solution = new int[squares];
             altSol = new int[squares];
         }
-        public static Sudoku Create(in byte p_rank, in short p_remove)
+        public static Sudoku Create(in int p_rank, in int p_remove)
         {
             Sudoku _sudoku = new Sudoku(p_rank, p_remove); _sudoku.FillAll();
             /*_sudoku.Shuffle();*/
