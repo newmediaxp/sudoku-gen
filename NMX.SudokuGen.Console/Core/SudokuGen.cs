@@ -1,15 +1,18 @@
 ﻿namespace NMX.SudokuGen.Console.Core;
 using Library.Core;
+using CLAP;
 using System;
+using System.Collections.Generic;
 
 public static class SudokuGen
 {
     private const string appName = nameof(SudokuGen), appVersion = "0.1",
         cmdVersion = "version", cmdHelp = "help", cmdCreate = "create", cmdSolve = "solve",
-        flgRank = "-r", flgInput = "-i", flgOutput = "-o",
-        expRank = "3", expInput = "./inputs.txt", expOutput = "./outputs.txt",
+        fgvRank = "-r", fgvBlanks = "-b", fgvInput = "-i", fgvOutput = "-o",
+        expInput = "./inputs.txt", expOutput = "./outputs.txt",
         expPuzzle = "/000000000/23234220423/40000234/23400000/2340000023/",
         expSolution = "/6554675667/2323422234423/4234234/234234/23423423/";
+    private const int dftRank = 3, dftBlank = dftRank * dftRank * dftRank;
     private static readonly string
         help = @$"
 === {appName} usage info ===
@@ -20,45 +23,64 @@ public static class SudokuGen
         3. {cmdVersion}{'\t'}: shows app version
         4. {cmdHelp}{'\t'}: shows usage info
 
-    options -
-        1. {flgRank}{'\t'}: specify rank of sudoku
-        2. {flgInput}{'\t'}: specify input .txt file
-        3. {flgOutput}{'\t'}: specify output .txt file
+    flags with value -
+        1. {fgvRank}{'\t'}: specify rank of sudoku
+        2. {fgvBlanks}{'\t'}: specify number of blanks in sudoku
+        2. {fgvInput}{'\t'}: specify input .txt file
+        3. {fgvOutput}{'\t'}: specify output .txt file
 
     examples -
-        1. {cmdCreate} {flgRank} {expRank}
-        2. {cmdCreate} {flgInput} {expInput}
+        1. {cmdCreate}
+        1. {cmdCreate} {fgvRank} {dftRank} {fgvBlanks} {dftBlank}
+        2. {cmdCreate} {fgvOutput} {expOutput}
         3. {cmdSolve} {expPuzzle}
-        4. {cmdSolve} {flgInput} {expInput} {flgOutput} {expOutput}
-    
+        4. {cmdSolve} {fgvInput} {expInput} {fgvOutput} {expOutput}
+
 ";
-    private static readonly string[] commands = [cmdCreate, cmdSolve, cmdVersion, cmdHelp];
-    private static readonly Dictionary<string, string?>
-        options = new() { { flgRank, null }, { flgInput, null }, { flgOutput, null } };
 
-    private static void ProcessOutput(in string p_output) => Console.WriteLine($"<< {p_output}");
+    private static void PrintError(in string p_message) => Console.WriteLine($"Error: {p_message}");
 
-    private static void ProcessInput(in string[] p_inputs)
+    private static void ProcessInputs(in string[] p_inputs)
     {
-        if (p_inputs == null) return;
-        static void HandleError(in string p_error) => Console.WriteLine($"Error: {p_error}");
-        string? a_command = null;
-        for (int i = 1, i_v = i + 1; i < p_inputs.Length; ++i, i_v = i + 1)
+        CLAP a_clap = new([cmdCreate, cmdSolve, cmdVersion, cmdHelp], [], [fgvRank, fgvBlanks, fgvInput, fgvOutput]);
+        (bool a_success, string a_message) = a_clap.ProcessInputs(p_inputs);
+        if (!a_success) { PrintError(a_message); return; }
+        int a_rank = dftRank, a_blank = dftBlank;
+        bool a_input, a_output;
+        foreach (KeyValuePair<string, string?> a_kvp in a_clap.flagsWithValue)
         {
-            if (string.IsNullOrEmpty(p_inputs[i])) continue;
-            p_inputs[i] = p_inputs[i].ToLower();
-            //-- extract command
-            if (commands.Contains(p_inputs[i]))
+            if (a_kvp.Value is null) continue;
+            switch (a_kvp.Key)
             {
-                if (!string.IsNullOrEmpty(a_command)) { HandleError($"multiple commands"); return; }
-                a_command = p_inputs[i];
+                case fgvRank:
+                    if (!int.TryParse(a_kvp.Value, out a_rank) || a_rank < 1 || a_rank > 4)
+                    { PrintError($"invalid rank '{a_kvp.Value}'"); return; }
+                    break;
+                case fgvBlanks:
+                    if (!int.TryParse(a_kvp.Value, out a_blank) || a_blank < 1)
+                    { PrintError($"invalid blanks '{a_kvp.Value}'"); return; }
+                    break;
+                case fgvInput:
+                    if (!a_kvp.Value.EndsWith(".txt")) a_input = true;
+                    break;
+                case fgvOutput:
+                    if (!a_kvp.Value.EndsWith(".txt")) a_output = true;
+                    break;
+                default: PrintError($"invalid flag '{a_kvp.Key}'"); return;
             }
-            //-- extract options
-            if (i_v < p_inputs.Length && options.ContainsKey(p_inputs[i]))
-            {
-                if (options[p_inputs[i]] != null) { HandleError($"duplicate option"); return; }
-                options[p_inputs[i]] = p_inputs[i_v];
-            }
+        }
+        switch (a_message)
+        {
+            case cmdCreate:
+
+                break;
+            case cmdSolve:
+                break;
+            case cmdVersion:
+                break;
+            case cmdHelp:
+                break;
+            default: PrintError($"invalid command '{a_message}'"); return;
         }
     }
 
@@ -130,7 +152,7 @@ public static class SudokuGen
     }
 
     public static void Main(string[] p_args)
-        => ProcessInput(p_args);
+        => ProcessInputs(p_args);
     //=> Test();
     //=> TestTimes();
     //=> TestAcuracy();
