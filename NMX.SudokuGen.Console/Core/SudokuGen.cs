@@ -100,8 +100,8 @@ public static class SudokuGen
     private static void Print(this Sudoku p_sudoku)
     {
         Console.Write($"+Sudoku>\tRank={p_sudoku.rank}\tGiven={p_sudoku.squares - p_sudoku.Removed}");
-        Console.Write("\n|  Puzz: "); for (int i = 0; i < p_sudoku.puzzle.Length; ++i) Console.Write($"{p_sudoku.puzzle[i]},");
-        Console.Write("\n|  Soln: "); for (int i = 0; i < p_sudoku.solution.Length; ++i) Console.Write($"{p_sudoku.solution[i]},");
+        Console.Write("\n|  Puzz: "); for (int i = 0; i < p_sudoku.puzzle.Length; ++i) Console.Write($"{p_sudoku.puzzle[i]}");
+        Console.Write("\n|  Soln: "); for (int i = 0; i < p_sudoku.solution.Length; ++i) Console.Write($"{p_sudoku.solution[i]}");
         Console.WriteLine();
     }
     private static void Test()
@@ -152,8 +152,8 @@ public static class SudokuGen
     }
 
     public static void Main(string[] p_args)
-        => ProcessInputs(p_args);
-    //=> Test();
+        //=> ProcessInputs(p_args);
+    => Test();
     //=> TestTimes();
     //=> TestAcuracy();
 }
