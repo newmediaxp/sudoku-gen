@@ -2,6 +2,7 @@
 {
     using System;
     using System.Collections.Generic;
+    using System.Threading.Tasks;
     using static Utility;
 
     public sealed class Sudoku
@@ -26,22 +27,24 @@
             solution = new int[squares];
             altSol = new int[squares];
         }
-        public static Sudoku Create(in int p_rank, in int p_remove)
+        public static async Task<Sudoku> Create(int p_rank, int p_remove)
         {
-            Sudoku _sudoku = new Sudoku(p_rank, p_remove); _sudoku.FillAll();
+            Sudoku _sudoku = new Sudoku(p_rank, p_remove);
+            await _sudoku.FillAll();
             /*_sudoku.Shuffle();*/
-            _sudoku.Prune();
+            await _sudoku.Prune();
             return _sudoku;
         }
-        public static Sudoku Solve(in int[] p_puzz)
+        public static async Task<Sudoku> Solve(int[] p_puzz)
         {
             int _rank = (int)Math.Sqrt(Math.Sqrt(p_puzz.Length));
             if (_rank * _rank * _rank * _rank != p_puzz.Length)
                 throw new InvalidOperationException("invalid puzzle length, could not determine rank");
             Sudoku _sudoku = new Sudoku(_rank, Count(p_puzz, 0)); _sudoku.Removed = _sudoku.remove;
             if (!_sudoku.Valid(p_puzz)) throw new InvalidOperationException("invalid puzzle, duplicate inputs found");
-            Copy(p_puzz, _sudoku.puzzle); Copy(_sudoku.puzzle, _sudoku.solution); _sudoku.FillRest();
-            if (!_sudoku.Unique()) throw new InvalidOperationException("invalid puzzle, no unique solution");
+            Copy(p_puzz, _sudoku.puzzle); Copy(_sudoku.puzzle, _sudoku.solution);
+            await _sudoku.FillRest();
+            if (!await _sudoku.Unique()) throw new InvalidOperationException("invalid puzzle, no unique solution");
             return _sudoku;
         }
         private void Shuffle(in int[] p_arr)
@@ -127,7 +130,7 @@
         //    }
         //    return _return;
         //}
-        private bool FillSequential(in FillMode p_mode, int p_idx)
+        private async Task<bool> FillSequential(FillMode p_mode, int p_idx)
         {
             if (!(p_idx < squares)) return true;
             int[] _arr = p_mode == FillMode.Uniqueness ? altSol : solution;
@@ -139,29 +142,29 @@
                 else if (p_mode == FillMode.Uniqueness) { _input = solution[p_idx] + i + 1; if (_input > rows) _input -= rows; }
                 else _input = 0;
                 if (Search_RowCol(_arr, _input, p_idx) || Search_Segment(_arr, _input, p_idx)) continue;
-                _arr[p_idx] = _input; if (FillSequential(p_mode, p_idx + 1)) return true;
+                _arr[p_idx] = _input; if (await FillSequential(p_mode, p_idx + 1)) return true;
                 _arr[p_idx] = 0;
             }
             return false;
         }
-        private void FillRemaining(in FillMode p_mode) => FillSequential(p_mode, 0);
-        private void FillAll()
+        private async Task FillRemaining(FillMode p_mode) => await FillSequential(p_mode, 0);
+        private async Task FillAll()
         {
             Set_DiagonalSegments(solution); InitRandom(altSol, new List<int>(rows), true);
-            FillRemaining(FillMode.RandomRow);
+            await FillRemaining(FillMode.RandomRow);
             if (Count(solution, 0) > 0) throw new InvalidOperationException("cannot create, logic error");
         }
-        private void FillRest()
+        private async Task FillRest()
         {
-            FillRemaining(FillMode.NoInput);
+            await FillRemaining(FillMode.NoInput);
             if (Count(solution, 0) > 0) throw new InvalidOperationException("cannot solve, logic error");
         }
-        private bool Unique()
+        private async Task<bool> Unique()
         {
             Copy(puzzle, altSol);
-            FillRemaining(FillMode.Uniqueness); return Same(altSol, solution);
+            await FillRemaining(FillMode.Uniqueness); return Same(altSol, solution);
         }
-        private void Prune()
+        private async Task Prune()
         {
             int _idx, _input;
             List<int> _removable = new List<int>(squares); Init(_removable, false);
@@ -169,7 +172,7 @@
             while (_removable.Count > 0 && Removed < remove)
             {
                 _idx = PopRandom(_removable); _input = puzzle[_idx]; if (_input == 0) continue;
-                puzzle[_idx] = 0; if (Unique()) { ++Removed; continue; }
+                puzzle[_idx] = 0; if (await Unique()) { ++Removed; continue; }
                 puzzle[_idx] = _input;
             }
         }
