@@ -104,10 +104,10 @@ public static class SudokuGen
         Console.Write("\n|  Soln: "); for (int i = 0; i < p_sudoku.solution.Length; ++i) Console.Write($"{p_sudoku.solution[i]}");
         Console.WriteLine();
     }
-    private static async void Test()
+    private static void Test()
     {
         //Sudoku.Create(2, 2 * 2 * 2 * 2).Print();
-        (await Sudoku.Create(3, 3 * 3 * 3 * 3)).Print();
+        (Sudoku.Create(3, 3 * 3 * 3 * 3)).Print();
         //Sudoku.Create(3, 80).PrintFormatted();
         ////---
         //        int[] _puzz = new int[81]
@@ -118,18 +118,18 @@ public static class SudokuGen
         //        catch (Exception p_ex) { Console.WriteLine($"Error: {p_ex.Message}"); }
         //---
     }
-    private static async void TestTimes()
+    private static void TestTimes()
     {
         //DateTime _old_start = DateTime.Now;
         //new SudokuOperations().GetSudoku(80);
         //DateTime _old_end = DateTime.Now;
         //Console.WriteLine($"OldGen :\t{(_old_end - _old_start).TotalMilliseconds} ms");
         DateTime _new_start = DateTime.Now;
-        await Sudoku.Create(3, 80);
+        Sudoku.Create(3, 80);
         DateTime _new_end = DateTime.Now;
         Console.WriteLine($"NewGen :\t{(_new_end - _new_start).TotalMilliseconds} ms");
     }
-    private static async void TestAcuracy()
+    private static void TestAcuracy()
     {
         //bool _old_pass;
         //{
@@ -143,9 +143,9 @@ public static class SudokuGen
         //Console.WriteLine($"OldGen :\t{(_old_pass ? "pass" : "fail")}");
         bool _new_pass;
         {
-            Sudoku _sudoku = await Sudoku.Create(3, 80);
+            Sudoku _sudoku = Sudoku.Create(3, 80);
             //_sudoku.puzzle[0] = 6;s
-            Sudoku _sudoku2 = await Sudoku.Solve(_sudoku.puzzle);
+            Sudoku _sudoku2 = Sudoku.Solve(_sudoku.puzzle);
             _new_pass = Utility.Same(_sudoku.solution, _sudoku2.solution);
         }
         Console.WriteLine($"NewGen :\t{(_new_pass ? "pass" : "fail")}");
