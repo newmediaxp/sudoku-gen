@@ -73,7 +73,7 @@
                 }
             }
         }
-        private bool Search_RowCol(in int[] p_arr, in int p_input, in int p_idx)
+        public bool Search_RowCol(in int[] p_arr, in int p_input, in int p_idx)
         {
             for (int _startRow = p_idx / rows * rows, _endRow = _startRow + rows,
                 i = _startRow; i < _endRow && i < squares; ++i) if (i != p_idx && p_arr[i] == p_input) return true;
@@ -81,7 +81,7 @@
                 i = _startCol; i < squares; i += rows) if (i != p_idx && p_arr[i] == p_input) return true;
             return false;
         }
-        private bool Search_Segment(in int[] p_arr, in int p_input, in int p_idx)
+        public bool Search_Segment(in int[] p_arr, in int p_input, in int p_idx)
         {
             for (int _startX = p_idx / rank * rank, _startO = _startX - _startX / rows % rank * rows,
                 _o, i = 0; i < rows; ++i)
