@@ -39,7 +39,7 @@
         public static void InitRandom(in int[] p_arr, in int p_length, in bool p_plus1)
         {
             for (int i = 0; i < p_arr.Length; ++i) p_arr[i] = i % p_length + (p_plus1 ? 1 : 0);
-            for (int r, t, i = 0; i < p_arr.Length; ++i)
+            for (int r, i = 0; i < p_arr.Length; ++i)
             {
                 int a_rows = i / p_length, a_start = a_rows * p_length, a_nextStart = (a_rows + 1) * p_length;
                 r = random.Next(a_start, a_nextStart); (p_arr[i], p_arr[r]) = (p_arr[r], p_arr[i]);
