@@ -28,66 +28,66 @@
         }
         public static Sudoku Create(int p_rank, int p_remove)
         {
-            Sudoku _sudoku = new Sudoku(p_rank, p_remove);
-            _sudoku.FillAll();
+            Sudoku a_sudoku = new Sudoku(p_rank, p_remove);
+            a_sudoku.FillAll();
             /*_sudoku.Shuffle();*/
-            _sudoku.Prune();
-            return _sudoku;
+            a_sudoku.Prune();
+            return a_sudoku;
         }
         public static Sudoku Solve(int[] p_puzz)
         {
-            int _rank = (int)Math.Sqrt(Math.Sqrt(p_puzz.Length));
-            if (_rank * _rank * _rank * _rank != p_puzz.Length)
+            int a_rank = (int)Math.Sqrt(Math.Sqrt(p_puzz.Length));
+            if (a_rank * a_rank * a_rank * a_rank != p_puzz.Length)
                 throw new InvalidOperationException("invalid puzzle length, could not determine rank");
-            Sudoku _sudoku = new Sudoku(_rank, Count(p_puzz, 0)); _sudoku.Removed = _sudoku.remove;
-            if (!_sudoku.Valid(p_puzz)) throw new InvalidOperationException("invalid puzzle, duplicate inputs found");
-            Copy(p_puzz, _sudoku.puzzle); Copy(_sudoku.puzzle, _sudoku.solution);
-            _sudoku.FillRest();
-            if (!_sudoku.Unique()) throw new InvalidOperationException("invalid puzzle, no unique solution");
-            return _sudoku;
+            Sudoku a_sudoku = new Sudoku(a_rank, Count(p_puzz, 0)); a_sudoku.Removed = a_sudoku.remove;
+            if (!a_sudoku.Valid(p_puzz)) throw new InvalidOperationException("invalid puzzle, duplicate inputs found");
+            Copy(p_puzz, a_sudoku.puzzle); Copy(a_sudoku.puzzle, a_sudoku.solution);
+            a_sudoku.FillRest();
+            if (!a_sudoku.Unique()) throw new InvalidOperationException("invalid puzzle, no unique solution");
+            return a_sudoku;
         }
         private void Shuffle(in int[] p_arr)
         {
-            int _posA, _posB;
+            int a_posA, a_posB;
             List<int> _shuffle = new List<int>(rank);
             // swapping segment rows
-            Init(_shuffle, false); _posA = PopRandom(_shuffle); _posB = PopRandom(_shuffle);
+            Init(_shuffle, false); a_posA = PopRandom(_shuffle); a_posB = PopRandom(_shuffle);
             for (int i = 0; i < squaresInSegmentRow; ++i) Swap3(p_arr, _shuffle[0] * squaresInSegmentRow + i,
-                _posA * squaresInSegmentRow + i, _posB * squaresInSegmentRow + i);
+                a_posA * squaresInSegmentRow + i, a_posB * squaresInSegmentRow + i);
             // swapping segment columns
-            Init(_shuffle, false); _posA = PopRandom(_shuffle); _posB = PopRandom(_shuffle);
+            Init(_shuffle, false); a_posA = PopRandom(_shuffle); a_posB = PopRandom(_shuffle);
             for (int i = 0; i < squaresInSegmentRow; ++i) Swap3(p_arr, _shuffle[0] * rank + i / rows + i % rows * rows,
-                _posA * rank + i / rows + i % rows * rows, _posB * rank + i / rows + i % rows * rows);
+                a_posA * rank + i / rows + i % rows * rows, a_posB * rank + i / rows + i % rows * rows);
             // swapping within segment rows and columns
             for (int i_seg = 0; i_seg < rank; ++i_seg)
             {
-                Init(_shuffle, false); _posA = PopRandom(_shuffle); _posB = PopRandom(_shuffle);
+                Init(_shuffle, false); a_posA = PopRandom(_shuffle); a_posB = PopRandom(_shuffle);
                 for (int i = 0; i < rows; ++i)
                 {
                     // swapping rows in segment rows
                     Swap3(p_arr, i_seg * squaresInSegmentRow + _shuffle[0] * rows + i,
-                        i_seg * squaresInSegmentRow + _posA * rows + i, i_seg * squaresInSegmentRow + _posB * rows + i);
+                        i_seg * squaresInSegmentRow + a_posA * rows + i, i_seg * squaresInSegmentRow + a_posB * rows + i);
                     // swapping columns in segment columns
                     Swap3(p_arr, i_seg * rank + _shuffle[0] + i * rows,
-                        i_seg * rank + _posA + i * rows, i_seg * rank + _posB + i * rows);
+                        i_seg * rank + a_posA + i * rows, i_seg * rank + a_posB + i * rows);
                 }
             }
         }
         public bool Search_RowCol(in int[] p_arr, in int p_input, in int p_idx)
         {
-            for (int _startRow = p_idx / rows * rows, _endRow = _startRow + rows,
-                i = _startRow; i < _endRow && i < squares; ++i) if (i != p_idx && p_arr[i] == p_input) return true;
-            for (int _startCol = p_idx % rows,
-                i = _startCol; i < squares; i += rows) if (i != p_idx && p_arr[i] == p_input) return true;
+            for (int a_startRow = p_idx / rows * rows, a_endRow = a_startRow + rows,
+                i = a_startRow; i < a_endRow && i < squares; ++i) if (i != p_idx && p_arr[i] == p_input) return true;
+            for (int a_startCol = p_idx % rows,
+                i = a_startCol; i < squares; i += rows) if (i != p_idx && p_arr[i] == p_input) return true;
             return false;
         }
         public bool Search_Segment(in int[] p_arr, in int p_input, in int p_idx)
         {
-            for (int _startX = p_idx / rank * rank, _startO = _startX - _startX / rows % rank * rows,
-                _o, i = 0; i < rows; ++i)
+            for (int a_startX = p_idx / rank * rank, a_startO = a_startX - a_startX / rows % rank * rows,
+                a_o, i = 0; i < rows; ++i)
             {
-                _o = _startO + i / rank * rows + i % rank;
-                if (_o != p_idx && p_arr[_o] == p_input) return true;
+                a_o = a_startO + i / rank * rows + i % rank;
+                if (a_o != p_idx && p_arr[a_o] == p_input) return true;
             }
             return false;
         }
@@ -103,9 +103,11 @@
         }
         private void Set_DiagonalSegments(in int[] p_arr)
         {
-            List<int> _inputs = new List<int>(rows); Init(_inputs, true);
+            int[] a_inputs = new int[squaresInSegmentRow];
+            //InitRandom(a_inputs, new List<int>(rows), true);
+            InitRandom(a_inputs, rows, true);
             for (int i = 0; i < squaresInSegmentRow; ++i)
-            { if (_inputs.Count == 0) Init(_inputs, true); p_arr[i / rows * rank + i / rank * rows + i % rank] = PopRandom(_inputs); }
+                p_arr[i / rows * rank + i / rank * rows + i % rank] = a_inputs[i];
         }
         // optimised for performance boost, reduced branches
         // num is int, { num >> 31 } gives -1 (when num < 0) or 0 (otherwise)  
@@ -132,24 +134,26 @@
         private bool FillSequential(FillMode p_mode, int p_idx)
         {
             if (!(p_idx < squares)) return true;
-            int[] _arr = p_mode == FillMode.Uniqueness ? altSol : solution;
-            while (_arr[p_idx] != 0) { ++p_idx; if (!(p_idx < squares)) return true; }
-            for (int _input, _startRow = p_idx / rows * rows, i = 0; i < rows; ++i)
+            int[] a_arr = p_mode == FillMode.Uniqueness ? altSol : solution;
+            while (a_arr[p_idx] != 0) { ++p_idx; if (!(p_idx < squares)) return true; }
+            for (int a_input, a_startRow = p_idx / rows * rows, i = 0; i < rows; ++i)
             {
-                if (p_mode == FillMode.NoInput) _input = i + 1;
-                else if (p_mode == FillMode.RandomRow) _input = altSol[_startRow + i];
-                else if (p_mode == FillMode.Uniqueness) { _input = solution[p_idx] + i + 1; if (_input > rows) _input -= rows; }
-                else _input = 0;
-                if (Search_RowCol(_arr, _input, p_idx) || Search_Segment(_arr, _input, p_idx)) continue;
-                _arr[p_idx] = _input; if (FillSequential(p_mode, p_idx + 1)) return true;
-                _arr[p_idx] = 0;
+                if (p_mode == FillMode.NoInput) a_input = i + 1;
+                else if (p_mode == FillMode.RandomRow) a_input = altSol[a_startRow + i];
+                else if (p_mode == FillMode.Uniqueness) { a_input = solution[p_idx] + i + 1; if (a_input > rows) a_input -= rows; }
+                else a_input = 0;
+                if (Search_RowCol(a_arr, a_input, p_idx) || Search_Segment(a_arr, a_input, p_idx)) continue;
+                a_arr[p_idx] = a_input; if (FillSequential(p_mode, p_idx + 1)) return true;
+                a_arr[p_idx] = 0;
             }
             return false;
         }
         private void FillRemaining(FillMode p_mode) => FillSequential(p_mode, 0);
         private void FillAll()
         {
-            Set_DiagonalSegments(solution); InitRandom(altSol, new List<int>(rows), true);
+            Set_DiagonalSegments(solution); 
+            //InitRandom(altSol, new List<int>(rows), true);
+            InitRandom(altSol, rows, true);
             FillRemaining(FillMode.RandomRow);
             if (Count(solution, 0) > 0) throw new InvalidOperationException("cannot create, logic error");
         }
@@ -165,14 +169,15 @@
         }
         private void Prune()
         {
-            int _idx, _input;
-            List<int> _removable = new List<int>(squares); Init(_removable, false);
+            int[] a_indexes = new int[squares];
+            //InitRandom(a_indexes, new List<int>(squares), false);
+            InitRandom(a_indexes, squares, false);
             Copy(solution, puzzle); Removed = 0;
-            while (_removable.Count > 0 && Removed < remove)
+            for (int a_input, i = 0; i < a_indexes.Length && Removed < remove; ++i)
             {
-                _idx = PopRandom(_removable); _input = puzzle[_idx]; if (_input == 0) continue;
-                puzzle[_idx] = 0; if (Unique()) { ++Removed; continue; }
-                puzzle[_idx] = _input;
+                a_input = puzzle[a_indexes[i]]; if (a_input == 0) continue;
+                puzzle[a_indexes[i]] = 0; if (Unique()) { ++Removed; continue; }
+                puzzle[a_indexes[i]] = a_input;
             }
         }
         private void Shuffle() => Shuffle(solution);

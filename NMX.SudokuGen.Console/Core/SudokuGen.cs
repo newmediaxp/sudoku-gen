@@ -10,8 +10,8 @@ public static class SudokuGen
         cmdVersion = "version", cmdHelp = "help", cmdCreate = "create", cmdSolve = "solve",
         fgvRank = "-r", fgvBlanks = "-b", fgvInput = "-i", fgvOutput = "-o",
         expInput = "./inputs.txt", expOutput = "./outputs.txt",
-        expPuzzle = "/000000000/23234220423/40000234/23400000/2340000023/",
-        expSolution = "/6554675667/2323422234423/4234234/234234/23423423/";
+        expPuzz = "000000000.23234220423.40000234.23400000.2340000023",
+        expSoln = "6554675667.2323422234423.4234234.234234.23423423";
     private const int dftRank = 3, dftBlank = dftRank * dftRank * dftRank;
     private static readonly string
         help = @$"
@@ -33,7 +33,7 @@ public static class SudokuGen
         1. {cmdCreate}
         1. {cmdCreate} {fgvRank} {dftRank} {fgvBlanks} {dftBlank}
         2. {cmdCreate} {fgvOutput} {expOutput}
-        3. {cmdSolve} {expPuzzle}
+        3. {cmdSolve} {expPuzz}
         4. {cmdSolve} {fgvInput} {expInput} {fgvOutput} {expOutput}
 
 ";
@@ -43,8 +43,8 @@ public static class SudokuGen
     private static void ProcessInputs(in string[] p_inputs)
     {
         CLAP a_clap = new([cmdCreate, cmdSolve, cmdVersion, cmdHelp], [], [fgvRank, fgvBlanks, fgvInput, fgvOutput]);
-        (bool a_success, string a_message) = a_clap.ProcessInputs(p_inputs);
-        if (!a_success) { PrintError(a_message); return; }
+        (bool a_success, string a_cmdORmsg) = a_clap.ProcessInputs(p_inputs);
+        if (!a_success) { PrintError(a_cmdORmsg); return; }
         int a_rank = dftRank, a_blank = dftBlank;
         bool a_input, a_output;
         foreach (KeyValuePair<string, string?> a_kvp in a_clap.flagsWithValue)
@@ -61,15 +61,19 @@ public static class SudokuGen
                     { PrintError($"invalid blanks '{a_kvp.Value}'"); return; }
                     break;
                 case fgvInput:
-                    if (!a_kvp.Value.EndsWith(".txt")) a_input = true;
+                    if (!a_kvp.Value.EndsWith(".txt"))
+                    { PrintError($"invalid input path '{a_kvp.Value}'"); return; }
+                    a_input = true;
                     break;
                 case fgvOutput:
-                    if (!a_kvp.Value.EndsWith(".txt")) a_output = true;
+                    if (!a_kvp.Value.EndsWith(".txt"))
+                    { PrintError($"invalid output path '{a_kvp.Value}'"); return; }
+                    a_output = true;
                     break;
                 default: PrintError($"invalid flag '{a_kvp.Key}'"); return;
             }
         }
-        switch (a_message)
+        switch (a_cmdORmsg)
         {
             case cmdCreate:
 
@@ -80,7 +84,7 @@ public static class SudokuGen
                 break;
             case cmdHelp:
                 break;
-            default: PrintError($"invalid command '{a_message}'"); return;
+            default: PrintError($"invalid command '{a_cmdORmsg}'"); return;
         }
     }
 
@@ -104,56 +108,28 @@ public static class SudokuGen
         Console.Write("\n|  Soln: "); for (int i = 0; i < p_sudoku.solution.Length; ++i) Console.Write($"{p_sudoku.solution[i]}");
         Console.WriteLine();
     }
-    private static void Test()
+    private static void TestCreation()
     {
         //Sudoku.Create(2, 2 * 2 * 2 * 2).Print();
         (Sudoku.Create(3, 3 * 3 * 3 * 3)).Print();
-        //Sudoku.Create(3, 80).PrintFormatted();
-        ////---
-        //        int[] _puzz = new int[81]
-        //        {
-        //3,7,0,0,0,3,0,0,6,0,1,0,2,5,0,0,0,0,0,4,2,0,0,0,0,0,2,0,0,0,2,0,5,0,0,0,0,0,0,0,9,0,0,0,8,4,0,1,7,0,3,5,0,0,9,0,0,0,1,4,8,6,0,0,6,0,0,0,0,0,5,0,0,0,0,0,0,0,1,0,9,
-        //        };
-        //        try { Sudoku.Solve(_puzz).Print(); }
-        //        catch (Exception p_ex) { Console.WriteLine($"Error: {p_ex.Message}"); }
-        //---
     }
-    private static void TestTimes()
+    private static void TestTimes(in int p_times)
     {
-        //DateTime _old_start = DateTime.Now;
-        //new SudokuOperations().GetSudoku(80);
-        //DateTime _old_end = DateTime.Now;
-        //Console.WriteLine($"OldGen :\t{(_old_end - _old_start).TotalMilliseconds} ms");
-        DateTime _new_start = DateTime.Now;
-        Sudoku.Create(3, 80);
-        DateTime _new_end = DateTime.Now;
-        Console.WriteLine($"NewGen :\t{(_new_end - _new_start).TotalMilliseconds} ms");
+        DateTime a_start = DateTime.Now;
+        for (int i = 0; i < p_times; ++i) Sudoku.Create(3, 3 * 3 * 3 * 3);
+        Console.WriteLine($"NewGen :\t{(DateTime.Now - a_start).TotalMilliseconds/p_times} ms");
     }
     private static void TestAcuracy()
     {
-        //bool _old_pass;
-        //{
-        //    SudokuOperations _sop = new();
-        //    int[] _all = _sop.GetSudoku(80);
-        //    int[] _puzz = new int[_all.Length]; int[] _sol = new int[_all.Length];
-        //    for (int i = 0; i < _all.Length; ++i) { _puzz[i] = _all[i] % 10; _sol[i] = _all[i] / 10; }
-        //    int[] _sol2 = _sop.SolveSudoku(_puzz);
-        //    _old_pass = Utility.Same(_sol, _sol2);
-        //}
-        //Console.WriteLine($"OldGen :\t{(_old_pass ? "pass" : "fail")}");
-        bool _new_pass;
-        {
-            Sudoku _sudoku = Sudoku.Create(3, 80);
-            //_sudoku.puzzle[0] = 6;s
-            Sudoku _sudoku2 = Sudoku.Solve(_sudoku.puzzle);
-            _new_pass = Utility.Same(_sudoku.solution, _sudoku2.solution);
-        }
-        Console.WriteLine($"NewGen :\t{(_new_pass ? "pass" : "fail")}");
+        Sudoku a_sudoku = Sudoku.Create(3, 80);
+        //_sudoku.puzzle[0] = 6;
+        Sudoku a_sudoku2 = Sudoku.Solve(a_sudoku.puzzle);
+        Console.WriteLine($"NewGen :\t{(Utility.Same(a_sudoku.solution, a_sudoku2.solution) ? "pass" : "fail")}");
     }
 
     public static void Main(string[] p_args)
-        //=> ProcessInputs(p_args);
-    => Test();
-    //=> TestTimes();
+    //=> ProcessInputs(p_args);
+    //=> TestCreation();
+    => TestTimes(5);
     //=> TestAcuracy();
 }
