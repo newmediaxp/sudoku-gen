@@ -29,7 +29,7 @@
             values.Clear();
         }
 
-        public (bool success, string message) ProcessInputs(in string[] p_inputs)
+        public (bool success, string cmd_or_msg) Process(in string[] p_inputs)
         {
             if (p_inputs == null) return (false, "no inputs");
             string a_input;
@@ -48,20 +48,20 @@
                 //-- extract flags
                 if (flags.TryGetValue(a_input, out bool a_found))
                 {
-                    if (a_found) return (false, "duplicate flag");
+                    if (a_found) return (false, $"duplicate flag '{a_input}'");
                     flags[a_input] = true; continue;
                 }
                 //-- extract flags with value
                 if (i + 1 < p_inputs.Length && !string.IsNullOrEmpty(p_inputs[i + 1])
                     && flagsWithValue.TryGetValue(a_input, out string? a_value))
                 {
-                    if (a_value != null) return (false, "duplicate flag with value");
+                    if (a_value != null) return (false, $"duplicate flag with value '{a_input}'");
                     flagsWithValue[a_input] = p_inputs[++i]; continue;
                 }
                 //-- extract value
                 if (a_command != null) values.Add(a_input);
             }
-            if (a_command == null) return (true, "invalid command");
+            if (a_command == null) return (false, $"no command");
             return (true, a_command);
         }
     }
