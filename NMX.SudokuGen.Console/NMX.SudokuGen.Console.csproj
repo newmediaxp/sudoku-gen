@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
     <PublishTrimmed>True</PublishTrimmed>
     <Title>SudokuGen</Title>
+    <PublishAot>False</PublishAot>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
