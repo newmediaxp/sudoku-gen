@@ -8,17 +8,17 @@ using System.Text;
 
 public static class SudokuGen
 {
-    private const string appName = nameof(SudokuGen), appVersion = "0.1",
+    private const string appName = nameof(SudokuGen), appVersion = "0.1.0",
         cmdVersion = "version", cmdHelp = "help", cmdCreate = "create", cmdSolve = "solve",
         fgvRank = "-r", fgvBlanks = "-b", fgvTimes = "-t", fgvInput = "-i", fgvOutput = "-o",
-        flgMinimalOutput = "-omin",
+        flgMinimalOutput = "-omin", flgBoardOutput = "-oboard",
         expInput = "./inputs.txt", expOutput = "./outputs.txt",
         expPuzz = "000000000.23234220423.40000234.23400000.2340000023",
         expSoln = "6554675667.2323422234423.4234234.234234.23423423";
     private const int dftRank = 3, dftBlanks = dftRank * dftRank * dftRank, dftTimes = 1;
     private static readonly string
         helpInfo = @$"
-=== {appName} usage info ===
+=== {appName} - usage info ===
 
     commands -  
         1. {cmdCreate}{'\t'}: Creates sudoku.
@@ -35,6 +35,7 @@ public static class SudokuGen
 
     flags without value -
         1. {flgMinimalOutput}{'\t'}: Give minimal output. Where Command = {{ {cmdCreate}, {cmdSolve} }}.
+        1. {flgBoardOutput}{'\t'}: Draw output in a formatted board. Where Command = {{ {cmdCreate}, {cmdSolve} }}.
 
     examples -
         1. {cmdCreate}
@@ -45,9 +46,41 @@ public static class SudokuGen
 
 ";
 
-    private static string GetFormatedSudoku(in Sudoku p_sudoku, in string p_time)
-        => $"rank={p_sudoku.rank}\tblanks={p_sudoku.Removed}\ttime={p_time}\n"
-        + $"{Utility.GetPuzzleCode(p_sudoku.puzzle)}\n{Utility.GetPuzzleCode(p_sudoku.solution)}\n";
+    private static string GetSudokuVisual(in Sudoku p_sudoku, in string p_time, in bool p_showRank,
+        in bool p_showPuzzle, in bool p_showSolution, in bool p_drawBoard)
+    {
+        StringBuilder a_visual = new();
+        if (p_showRank) a_visual.Append($"rank={p_sudoku.rank}\tgiven={p_sudoku.squares - p_sudoku.Removed}\ttime={p_time}\n");
+        if (p_drawBoard)
+        {
+            int a_rows = p_sudoku.rows, a_squares = p_sudoku.squares;
+            void DrawLine()
+            {
+                a_visual.Append('+');
+                for (int i = 0; i < a_rows; ++i) a_visual.Append("---+");
+                a_visual.Append('\n');
+            }
+            void DrawBoard(in int[] p_puzz)
+            {
+                DrawLine();
+                for (int i = 0; i < a_squares; ++i)
+                {
+                    a_visual.Append($"| {(p_puzz[i] == 0 ? " " : p_puzz[i] > 9 ? 'A' + p_puzz[i] - 1 : p_puzz[i])} ");
+                    if (i % a_rows + 1 == a_rows) { a_visual.Append('|').Append('\n'); DrawLine(); }
+                }
+            }
+            if (!p_showRank) a_visual.Append('\n');
+            if (p_showPuzzle) DrawBoard(p_sudoku.puzzle);
+            if (p_showSolution) DrawBoard(p_sudoku.solution);
+        }
+        else
+        {
+            if (p_showPuzzle) a_visual.Append(Utility.GetPuzzleCode(p_sudoku.puzzle));
+            if (p_showSolution) a_visual.Append(Utility.GetPuzzleCode(p_sudoku.solution));
+            a_visual.Append('\n');
+        }
+        return a_visual.ToString();
+    }
     private static void Print(in string p_message) => Console.WriteLine(p_message);
     private static void ProcessInputs(in string[] p_inputs)
     {
@@ -55,11 +88,12 @@ public static class SudokuGen
             => Print($"invalid flag '{p_flag}' for command '{p_command}'");
         void Error_ValueForFlag(in string p_flag, in string p_value)
             => Print($"invalid value '{p_value}' for flag '{p_flag}'");
-        CLAP a_clap = new([cmdCreate, cmdSolve, cmdVersion, cmdHelp], [flgMinimalOutput], [fgvRank, fgvBlanks, fgvTimes, fgvInput, fgvOutput]);
+        CLAP a_clap = new([cmdCreate, cmdSolve, cmdVersion, cmdHelp], [flgMinimalOutput, flgBoardOutput],
+            [fgvRank, fgvBlanks, fgvTimes, fgvInput, fgvOutput]);
         (bool a_success, string a_cmd_or_msg) = a_clap.Process(p_inputs);
         if (!a_success) { Print(a_cmd_or_msg); return; }
         int a_rank = dftRank, a_blanks = dftBlanks, a_times = dftTimes;
-        bool a_minimalOutput = false;
+        bool a_minimalOutput = false, a_boardOutput = false;
         string? a_inputPath = null, a_outputPath = null;
         foreach (KeyValuePair<string, bool> a_kvp in a_clap.flags)
         {
@@ -69,6 +103,11 @@ public static class SudokuGen
                     if (a_cmd_or_msg is not (cmdCreate or cmdSolve))
                     { Error_FlagForCommand(a_kvp.Key, a_cmd_or_msg); return; }
                     a_minimalOutput = a_kvp.Value;
+                    break;
+                case flgBoardOutput:
+                    if (a_cmd_or_msg is not (cmdCreate or cmdSolve))
+                    { Error_FlagForCommand(a_kvp.Key, a_cmd_or_msg); return; }
+                    a_boardOutput = a_kvp.Value;
                     break;
                 default: Print($"unhandled flag '{a_kvp.Key}'"); return;
             }
@@ -124,8 +163,8 @@ public static class SudokuGen
                         a_output.Append(a_minimalOutput ? ">" : $"{1 + i}.\t");
                         DateTime a_start = DateTime.Now;
                         Sudoku a_sudoku = Sudoku.Create(a_rank, a_blanks);
-                        a_output.Append(a_minimalOutput ? $"{Utility.GetPuzzleCode(a_sudoku.puzzle)}\n"
-                            : GetFormatedSudoku(a_sudoku, $"{(DateTime.Now - a_start).TotalMilliseconds}ms"));
+                        a_output.Append(GetSudokuVisual(a_sudoku, $"{(DateTime.Now - a_start).TotalMilliseconds}ms",
+                            !a_minimalOutput, true, !a_minimalOutput, a_boardOutput));
                     }
                     catch (Exception p_ex) { a_output.Append($"Error: {p_ex.Message}\n"); }
                 }
@@ -143,11 +182,11 @@ public static class SudokuGen
                 {
                     try
                     {
-                        a_output.Append(a_minimalOutput ? "=" : $"{1 + i}.\t");
+                        a_output.Append(a_minimalOutput ? ">" : $"{1 + i}.\t");
                         DateTime a_start = DateTime.Now;
                         Sudoku a_sudoku = Sudoku.Solve(Utility.GetPuzzleArr(a_puzzCodes[i]));
-                        a_output.Append(a_minimalOutput ? $"{Utility.GetPuzzleCode(a_sudoku.solution)}\n"
-                            : GetFormatedSudoku(a_sudoku, $"{(DateTime.Now - a_start).TotalMilliseconds}ms"));
+                        a_output.Append(GetSudokuVisual(a_sudoku, $"{(DateTime.Now - a_start).TotalMilliseconds}ms",
+                            !a_minimalOutput, !a_minimalOutput, true, a_boardOutput));
                     }
                     catch (Exception p_ex) { a_output.Append($"Error: {p_ex.Message}\n"); }
                 }
@@ -166,32 +205,6 @@ public static class SudokuGen
                 break;
             default: Print($"unhandled command '{a_cmd_or_msg}'"); return;
         }
-    }
-
-    private static void PrintFormatted(this Sudoku p_sudoku, bool p_justIndexes = false)
-    {
-        void DrawLine() { Console.Write("\n  +"); for (int i = 0; i < p_sudoku.rows; ++i) Console.Write("----+"); }
-        Console.Write("\t SUDOKU\n");
-        DrawLine();
-        for (int i = 0; i < p_sudoku.squares; ++i)
-        {
-            if (i % p_sudoku.rows == 0) Console.Write("\n  ");
-            Console.Write($"| {(p_justIndexes ? i : p_sudoku.puzzle[i] == 0 ? "  " : p_sudoku.puzzle[i]):00} ");
-            if (i % p_sudoku.rows + 1 == p_sudoku.rows) { Console.Write("|"); DrawLine(); }
-        }
-        Console.Write("\n");
-    }
-    private static void TestCreation()
-    {
-        //Print(GetFormatedSudoku(Sudoku.Create(2, 2 * 2 * 2 * 2), "N/A"));
-        Print(GetFormatedSudoku(Sudoku.Create(3, 3 * 3 * 3 * 3), "N/A"));
-        //Print(GetFormatedSudoku(Sudoku.Create(4, 4 * 4 * 4 * 2), "N/A"));
-    }
-    private static void TestTimes(in int p_times)
-    {
-        DateTime a_start = DateTime.Now;
-        for (int i = 0; i < p_times; ++i) Sudoku.Create(3, 3 * 3 * 3 * 3);
-        Console.WriteLine($"NewGen :\t{(DateTime.Now - a_start).TotalMilliseconds / p_times:0.00} ms");
     }
     private static void TestAcuracy()
     {
