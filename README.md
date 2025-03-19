@@ -1,6 +1,6 @@
 # SudokuGen
 
-`cli` `app` `sudoku`
+`sudoku` `library` `cli` `app`
 
 &copy; NewMediaXP  
 |
@@ -15,14 +15,17 @@
 
 ## Description
 
-**NMX.SudokuGen.Library**: A library written in C# to generate and solve sudoku puzzles.
+* NMX.SudokuGen.Library
+    > A library written in C# to generate and solve sudoku puzzles.
 
-**NMX.SudokuGen.Console**: A CLI application written in C# that can generate and solve sudoku puzzles.
+* NMX.SudokuGen.Console
+    > A CLI application written in C# that can generate and solve sudoku puzzles.
   
 ---
 
 ## Used in  
 
-* Shaolin Sudoku : A sudoku game made in Unity.
+* Shaolin Sudoku 
+    > A sudoku game made in Unity.
 
 ---
