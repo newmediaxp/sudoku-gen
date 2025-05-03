@@ -23,7 +23,7 @@ A library written in C# to generate and solve sudoku puzzles.
 
 * Dependencies
 
-    * .Net Standard 2.0
+    * .Net Standard 2.1
 
 * Used in
 
@@ -32,7 +32,7 @@ A library written in C# to generate and solve sudoku puzzles.
 
 * Downloads
 
-    * 
+    * [Github](https://github.com/newmediaxp/sudoku-gen/releases)
 
 ---
 

@@ -3,6 +3,12 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <Nullable>enable</Nullable>
+    <UserSecretsId>83d9bc8c-8f56-44dc-a3df-75bd1b2e5461</UserSecretsId>
+    <Version>0.1.0</Version>
+    <Title>SudokuGen Library</Title>
+    <Authors>AnimaxNeil</Authors>
+    <Company>New Media XP</Company>
+    <Copyright>New Media XP</Copyright>
   </PropertyGroup>
 
 </Project>

@@ -28,7 +28,7 @@ A CLI application written in C# that can generate and solve sudoku puzzles.
 
 * Downloads
 
-    * 
+    * [Github](https://github.com/newmediaxp/sudoku-gen/releases)
 
 ---
 
