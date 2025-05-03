@@ -5,8 +5,13 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <PublishTrimmed>True</PublishTrimmed>
-    <Title>SudokuGen</Title>
+    <Title>SudokuGen Console</Title>
     <PublishAot>False</PublishAot>
+    <Version>0.1.0</Version>
+    <Company>New Media XP</Company>
+    <Authors>AnimaxNeil</Authors>
+    <Copyright>New Media XP</Copyright>
+    <PackageTags>sudoku</PackageTags>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
