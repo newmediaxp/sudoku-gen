@@ -13,8 +13,8 @@ public static class SudokuGen
         fgvRank = "-r", fgvBlanks = "-b", fgvTimes = "-t", fgvInput = "-i", fgvOutput = "-o",
         flgMinimalOutput = "-omin", flgBoardOutput = "-oboard",
         expInput = "./inputs.txt", expOutput = "./outputs.txt",
-        expPuzz = "000000000.23234220423.40000234.23400000.2340000023",
-        expSoln = "6554675667.2323422234423.4234234.234234.23423423";
+        expPuzz = "390560027.001809405.600172893.180257900.500643000.204081570.003096052.050328619.962010300",
+        expSoln = "398564127.721839465.645172893.186257934.579643281.234981576.813496752.457328619.962715348";
     private const int dftRank = 3, dftBlanks = dftRank * dftRank * dftRank, dftTimes = 1;
     private static readonly string
         helpInfo = @$"
