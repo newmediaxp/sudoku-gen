@@ -1,4 +1,4 @@
-# SudokuGen Console
+# Sudoku Gen Console
 
 `sudoku` `C#` `app` `cli`
 
@@ -24,7 +24,7 @@ A CLI application written in C# that can generate and solve sudoku puzzles.
 * Dependencies
 
     * .Net 8.0
-    * SudokuGen Library [(link)](../NMX.SudokuGen.Library)
+    * Sudoku Gen Library [(link)](../NMX.SudokuGen.Library)
 
 * Downloads
 

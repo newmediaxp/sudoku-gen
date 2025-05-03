@@ -1,4 +1,4 @@
-# SudokuGen Library
+# Sudoku Gen Library
 
 `sudoku` `C#` `library` `dll`
 
@@ -27,7 +27,7 @@ A library written in C# to generate and solve sudoku puzzles.
 
 * Used in
 
-    * SudokuGen Console [(link)](../NMX.SudokuGen.Console)
+    * Sudoku Gen Console [(link)](../NMX.SudokuGen.Console)
     * Shaolin Sudou [(link)](https://www.newmediaxp.com/blog/article/shaolin-sudoku)
 
 * Downloads

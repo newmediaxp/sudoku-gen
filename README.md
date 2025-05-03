@@ -1,4 +1,4 @@
-# SudokuGen
+# Sudoku Gen
 
 `sudoku` `C#`
 
