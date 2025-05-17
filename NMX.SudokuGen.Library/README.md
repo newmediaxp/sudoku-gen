@@ -2,7 +2,7 @@
 
 `sudoku` `C#` `library` `dll`
 
-&copy; NewMediaXP  
+&copy; New Media XP  
 |
 [website](https://www.newmediaxp.com)
 |

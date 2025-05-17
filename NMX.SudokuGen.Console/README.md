@@ -2,7 +2,7 @@
 
 `sudoku` `C#` `app` `cli`
 
-&copy; NewMediaXP  
+&copy; New Media XP  
 |
 [website](https://www.newmediaxp.com)
 |
