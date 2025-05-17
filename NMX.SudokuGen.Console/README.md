@@ -35,7 +35,7 @@ A CLI application written in C# that can generate and solve sudoku puzzles.
 ## Contact
 
 * Link: https://www.newmediaxp.com/contact
-* Email-1: contact@newmediaxp.com
-* Email-2: animaxneil@gmail.com
+* Email-1: <contact@newmediaxp.com>
+* Email-2: <animaxneil@gmail.com>
 
 ---
