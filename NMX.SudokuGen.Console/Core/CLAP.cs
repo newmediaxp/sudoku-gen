@@ -38,7 +38,7 @@
             {
                 a_input = p_inputs[i];
                 if (string.IsNullOrEmpty(a_input)) continue;
-                a_input = a_input.ToLower();
+                a_input = a_input.ToLowerInvariant();
                 //-- extract command
                 if (commands.Contains(a_input))
                 {
@@ -58,6 +58,8 @@
                     if (a_value != null) return (false, $"duplicate flag with value '{a_input}'");
                     flagsWithValue[a_input] = p_inputs[++i]; continue;
                 }
+                //-- reject unknown or incomplete flags so typos are not silently ignored
+                if (a_input[0] == '-') return (false, $"unknown or incomplete flag '{a_input}'");
                 //-- extract value
                 if (a_command != null) values.Add(a_input);
             }
