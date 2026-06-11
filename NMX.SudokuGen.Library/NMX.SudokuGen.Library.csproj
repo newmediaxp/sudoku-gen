@@ -3,12 +3,20 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <Nullable>enable</Nullable>
-    <UserSecretsId>83d9bc8c-8f56-44dc-a3df-75bd1b2e5461</UserSecretsId>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- deliberately undocumented self-evident members should not warn -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
     <Version>0.1.0</Version>
     <Title>SudokuGen Library</Title>
+    <Description>Sudoku generator and solver: unique-solution puzzle creation (optionally seeded), solving, validation, conflict reporting and isomorphic shuffling.</Description>
     <Authors>AnimaxNeil</Authors>
     <Company>New Media XP</Company>
     <Copyright>New Media XP</Copyright>
+    <PackageTags>sudoku</PackageTags>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)'=='Release'">
+    <DebugType>none</DebugType>
   </PropertyGroup>
 
 </Project>

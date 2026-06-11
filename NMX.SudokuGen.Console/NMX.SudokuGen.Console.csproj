@@ -2,23 +2,19 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <PublishTrimmed>True</PublishTrimmed>
     <Title>SudokuGen Console</Title>
     <PublishAot>False</PublishAot>
     <Version>0.1.0</Version>
+    <Description>CLI front-end for the SudokuGen library: create and solve sudoku puzzles from the command line.</Description>
     <Company>New Media XP</Company>
     <Authors>AnimaxNeil</Authors>
     <Copyright>New Media XP</Copyright>
-    <PackageTags>sudoku</PackageTags>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <DebugType>none</DebugType>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+  <PropertyGroup Condition="'$(Configuration)'=='Release'">
     <DebugType>none</DebugType>
   </PropertyGroup>
 
