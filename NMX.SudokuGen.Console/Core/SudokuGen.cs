@@ -20,38 +20,40 @@ public static class SudokuGen
         expBlanks = "40", expTimes = "10", expSeed = "777";
     private const int dftRank = 3, dftTimes = 1;
     private static readonly string
-        helpInfo = @$"
-=== {appName} - usage info ===
+        helpInfo = $$"""
 
-    commands -
-        1. {cmdCreate}{'\t'}: Creates sudoku.
-        2. {cmdSolve}{'\t'}: Solves sudoku.
-        3. {cmdShuffle}{'\t'}: Shuffles sudoku into an equivalent variant.
-        4. {cmdVersion}{'\t'}: Shows app version.
-        5. {cmdHelp}{"\t\t"}: Shows usage info.
+        === {{appName}} - usage info ===
 
-    flags with value -
-        1. {fgvRank}{'\t'}: Specify rank of sudoku. Rank = {{ r | r ∈ N, {Sudoku.minRank} <= r <= {Sudoku.maxRank} }} where Command = {{ {cmdCreate} }}. Higher ranks take much longer.
-        2. {fgvBlanks}{'\t'}: Specify desired blanks in sudoku. Blanks = {{ b | b ∈ N, 0 <= b <= Rank^4 }} or '{valBlanksMax}' where Command = {{ {cmdCreate} }}. Default = Rank^3. 0 gives a solved grid, '{valBlanksMax}' as many blanks as uniqueness allows.
-        3. {fgvTimes}{'\t'}: Specify number of sudokus. Times = {{ t | t ∈ N, t >= 1 }} where Command = {{ {cmdCreate} }}.
-        4. {fgvSeed}{'\t'}: Specify seed for reproducible results. Where Command = {{ {cmdCreate}, {cmdShuffle} }}.
-        5. {fgvInput}{'\t'}: Specify input .txt file. Where Command = {{ {cmdSolve}, {cmdShuffle} }}.
-        6. {fgvOutput}{'\t'}: Specify output .txt file. Where Command = {{ {cmdCreate}, {cmdSolve}, {cmdShuffle} }}.
+            commands -
+                1. {{cmdCreate}}{{'\t'}}: Creates sudoku.
+                2. {{cmdSolve}}{{'\t'}}: Solves sudoku.
+                3. {{cmdShuffle}}{{'\t'}}: Shuffles sudoku into an equivalent variant.
+                4. {{cmdVersion}}{{'\t'}}: Shows app version.
+                5. {{cmdHelp}}{{"\t\t"}}: Shows usage info.
 
-    flags without value -
-        1. {flgMinimalOutput}{'\t'}: Give minimal output. Where Command = {{ {cmdCreate}, {cmdSolve}, {cmdShuffle} }}.
-        2. {flgBoardOutput}{'\t'}: Draw output in a formatted board. Where Command = {{ {cmdCreate}, {cmdSolve}, {cmdShuffle} }}.
-        3. {flgSolutionOutput}{'\t'}: Include the solution. Where Command = {{ {cmdCreate}, {cmdShuffle} }}.
+            flags with value -
+                1. {{fgvRank}}{{'\t'}}: Specify rank of sudoku. Rank = { r | r ∈ N, {{Sudoku.minRank}} <= r <= {{Sudoku.maxRank}} } where Command = { {{cmdCreate}} }. Higher ranks take much longer.
+                2. {{fgvBlanks}}{{'\t'}}: Specify desired blanks in sudoku. Blanks = { b | b ∈ N, 0 <= b <= Rank^4 } or '{{valBlanksMax}}' where Command = { {{cmdCreate}} }. Default = Rank^3. 0 gives a solved grid, '{{valBlanksMax}}' as many blanks as uniqueness allows.
+                3. {{fgvTimes}}{{'\t'}}: Specify number of sudokus. Times = { t | t ∈ N, t >= 1 } where Command = { {{cmdCreate}} }.
+                4. {{fgvSeed}}{{'\t'}}: Specify seed for reproducible results. Where Command = { {{cmdCreate}}, {{cmdShuffle}} }.
+                5. {{fgvInput}}{{'\t'}}: Specify input .txt file. Where Command = { {{cmdSolve}}, {{cmdShuffle}} }.
+                6. {{fgvOutput}}{{'\t'}}: Specify output .txt file. Where Command = { {{cmdCreate}}, {{cmdSolve}}, {{cmdShuffle}} }.
 
-    examples -
-        1. {cmdCreate}
-        2. {cmdCreate} {fgvRank} {dftRank} {fgvBlanks} {expBlanks} {fgvSeed} {expSeed}
-        2b. {cmdCreate} {fgvBlanks} {valBlanksMax}
-        3. {cmdCreate} {fgvTimes} {expTimes} {fgvOutput} {expOutput}
-        4. {cmdSolve} {expPuzz}
-        5. {cmdSolve} {fgvInput} {expInput} {fgvOutput} {expOutput}
-        6. {cmdShuffle} {expPuzz} {fgvSeed} {expSeed}
-";
+            flags without value -
+                1. {{flgMinimalOutput}}{{'\t'}}: Give minimal output. Where Command = { {{cmdCreate}}, {{cmdSolve}}, {{cmdShuffle}} }.
+                2. {{flgBoardOutput}}{{'\t'}}: Draw output in a formatted board. Where Command = { {{cmdCreate}}, {{cmdSolve}}, {{cmdShuffle}} }.
+                3. {{flgSolutionOutput}}{{'\t'}}: Include the solution. Where Command = { {{cmdCreate}}, {{cmdShuffle}} }.
+
+            examples -
+                1. {{cmdCreate}}
+                2. {{cmdCreate}} {{fgvRank}} {{dftRank}} {{fgvBlanks}} {{expBlanks}} {{fgvSeed}} {{expSeed}}
+                2b. {{cmdCreate}} {{fgvBlanks}} {{valBlanksMax}}
+                3. {{cmdCreate}} {{fgvTimes}} {{expTimes}} {{fgvOutput}} {{expOutput}}
+                4. {{cmdSolve}} {{expPuzz}}
+                5. {{cmdSolve}} {{fgvInput}} {{expInput}} {{fgvOutput}} {{expOutput}}
+                6. {{cmdShuffle}} {{expPuzz}} {{fgvSeed}} {{expSeed}}
+
+        """;
 
     private static string GetSudokuVisual(in Sudoku p_sudoku, in string p_time, in bool p_showRank,
         in bool p_showPuzzle, in bool p_showSolution, in bool p_drawBoard)
