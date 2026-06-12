@@ -73,8 +73,8 @@ public sealed class Sudoku
     {
         if (p_rank < minRank || p_rank > maxRank)
             throw new ArgumentException($"rank must be within {minRank}..{maxRank}", nameof(p_rank));
-        if (p_remove < 0)
-            throw new ArgumentException("requested blanks cannot be negative", nameof(p_remove));
+        if (p_remove < 0 || p_remove > squares)
+            throw new ArgumentException($"blanks must be within 0 .. rank^4". );
         rank = p_rank;
         remove = p_remove;
         random = p_random;
@@ -105,6 +105,8 @@ public sealed class Sudoku
             segOf[i] = i / squaresInSegmentRow * rank + i % rows / rank;
         }
     }
+
+    #region Create
 
     /// <summary>
     /// Creates a random sudoku while keeping the solution unique (<see cref="Removed"/> holds the achieved blank count).
@@ -188,6 +190,8 @@ public sealed class Sudoku
             puzzle[a_indexes[i]] = a_input;
         }
     }
+
+    #endregion
 
     #region Conflict
 
