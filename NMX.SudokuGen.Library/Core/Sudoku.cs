@@ -20,8 +20,10 @@ public sealed class Sudoku
     /// Search nodes a single solvability trial in <see cref="UniqueWithout"/> may spend before giving up on the removal.
     /// Bounds <see cref="Create(in int, in int, in bool)"/>'s runtime at extreme blank counts without ever
     /// breaking uniqueness; bypassed by its exhaustive flag.
+    /// Recalibrated for locked candidates (2026-06-12): max-blank counts stayed flat from 10 up to 100
+    /// at ranks 4 and 5 while runtime scaled with the budget, so the smallest equal-quality value wins.
     /// </summary>
-    private const int trialBudgetPerSquare = 100;
+    private const int trialBudgetPerSquare = 10;
 
     /// <summary>
     /// Segment size of the sudoku: 2 = 4x4 up to 5 = 25x25.
@@ -51,8 +53,12 @@ public sealed class Sudoku
     private readonly uint[] rowOnceMask, colOnceMask, segOnceMask;
     private readonly uint[] rowTwiceMask, colTwiceMask, segTwiceMask;
     private readonly uint[] rowThriceMask, colThriceMask, segThriceMask;
+    private readonly uint[] candMask;
+    private readonly uint[] rowBlockMask, colBlockMask, rowBlockElim, colBlockElim;
+    private readonly uint[] rowConfMask, colConfMask;
     private readonly uint fullMask;
     private readonly int[] rowOf, colOf, segOf;
+    private readonly int[] rowBlockOf, colBlockOf;
     private readonly Random random;
     private readonly int trialBudget;
     private int fillNodesLeft;
@@ -104,15 +110,26 @@ public sealed class Sudoku
         rowThriceMask = new uint[rows];
         colThriceMask = new uint[rows];
         segThriceMask = new uint[rows];
+        candMask = new uint[squares];
+        rowBlockMask = new uint[squaresInSegmentRow];
+        colBlockMask = new uint[squaresInSegmentRow];
+        rowBlockElim = new uint[squaresInSegmentRow];
+        colBlockElim = new uint[squaresInSegmentRow];
+        rowConfMask = new uint[rows];
+        colConfMask = new uint[rows];
         fullMask = ((1u << rows) - 1) << 1;
         rowOf = new int[squares];
         colOf = new int[squares];
         segOf = new int[squares];
+        rowBlockOf = new int[squares];
+        colBlockOf = new int[squares];
         for (int i = 0; i < squares; ++i)
         {
             rowOf[i] = i / rows;
             colOf[i] = i % rows;
             segOf[i] = i / squaresInSegmentRow * rank + i % rows / rank;
+            rowBlockOf[i] = rowOf[i] * rank + colOf[i] / rank;
+            colBlockOf[i] = colOf[i] * rank + rowOf[i] / rank;
         }
     }
 
@@ -420,8 +437,11 @@ public sealed class Sudoku
 
     /// <summary>
     /// Recursive backtracker over the blank squares of <paramref name="p_arr"/>, always working on the most constrained blank first, 
-    /// forced squares (one candidate left, or a hidden single) are placed without branching, 
-    /// and a grid is abandoned the moment any blank or needed unit value runs out of options. Both deductions keep every completion.
+    /// forced squares (one candidate left, or a hidden single) are placed without branching,
+    /// and a grid is abandoned the moment any blank or needed unit value runs out of options.
+    /// Deductions escalate lazily: only when nothing is forced are locked candidates derived
+    /// (see <see cref="Derive_BlockEliminations"/>) and the scan repeated on the narrowed candidates,
+    /// so easy grids never pay for the expensive deduction. All deductions keep every completion.
     /// When guessing is unavoidable, a two-homes value (see <see cref="FillValuePair"/>) is preferred over a square with 3+ candidates.
     /// <paramref name="p_mode"/> decides the candidate order per square.
     /// The masks must describe <paramref name="p_arr"/> on entry and are stale after a completed fill —
@@ -437,54 +457,25 @@ public sealed class Sudoku
         if (--fillNodesLeft < 0) return true;
         int a_bestIdx = -1, a_bestCount = int.MaxValue;
         uint a_bestFreeMask = 0;
-        for (int i = 0; i < rows; ++i)
-        {
-            rowOnceMask[i] = 0; colOnceMask[i] = 0; segOnceMask[i] = 0;
-            rowTwiceMask[i] = 0; colTwiceMask[i] = 0; segTwiceMask[i] = 0;
-            rowThriceMask[i] = 0; colThriceMask[i] = 0; segThriceMask[i] = 0;
-        }
-        for (int i = 0; i < squares; ++i)
-        {
-            if (p_arr[i] != 0) continue;
-            int a_r = rowOf[i], a_c = colOf[i], a_s = segOf[i];
-            uint a_freeMask = ~(rowMask[a_r] | colMask[a_c] | segMask[a_s]) & fullMask;
-            int a_count = PopCount(a_freeMask);
-            if (a_count == 0) return false;
-            // values seen in one blank of the unit so far vs in two vs in more — singles are once & ~twice, pairs twice & ~thrice
-            rowThriceMask[a_r] |= rowTwiceMask[a_r] & a_freeMask; rowTwiceMask[a_r] |= rowOnceMask[a_r] & a_freeMask; rowOnceMask[a_r] |= a_freeMask;
-            colThriceMask[a_c] |= colTwiceMask[a_c] & a_freeMask; colTwiceMask[a_c] |= colOnceMask[a_c] & a_freeMask; colOnceMask[a_c] |= a_freeMask;
-            segThriceMask[a_s] |= segTwiceMask[a_s] & a_freeMask; segTwiceMask[a_s] |= segOnceMask[a_s] & a_freeMask; segOnceMask[a_s] |= a_freeMask;
-            if (a_count >= a_bestCount) continue;
-            a_bestCount = a_count; a_bestIdx = i; a_bestFreeMask = a_freeMask;
-            // a forced square cannot be beaten, except by a dead one ending the fill anyway
-            if (a_bestCount == 1) break;
-        }
+        if (!Scan_Candidates(p_arr, false, ref a_bestIdx, ref a_bestCount, ref a_bestFreeMask)) return false;
         if (a_bestIdx == -1) return true;
-        // only a complete scan fully accumulates the unit masks; a naked single needs no hidden one anyway
-        if (a_bestCount > 1) for (int i = 0; i < rows; ++i)
+        if (a_bestCount > 1 && !Search_UnitForced(p_arr, ref a_bestIdx, ref a_bestCount, ref a_bestFreeMask)) return false;
+        // nothing forced cheaply — escalate to locked candidates and rescan before resorting to guessing
+        if (a_bestCount > 1)
         {
-            if ((fullMask & ~(rowMask[i] | rowOnceMask[i])) != 0) return false;
-            if ((fullMask & ~(colMask[i] | colOnceMask[i])) != 0) return false;
-            if ((fullMask & ~(segMask[i] | segOnceMask[i])) != 0) return false;
-            uint a_hiddenMask = rowOnceMask[i] & ~rowTwiceMask[i];
-            int[] a_unitOf = rowOf;
-            if (a_hiddenMask == 0) { a_hiddenMask = colOnceMask[i] & ~colTwiceMask[i]; a_unitOf = colOf; }
-            if (a_hiddenMask == 0) { a_hiddenMask = segOnceMask[i] & ~segTwiceMask[i]; a_unitOf = segOf; }
-            if (a_hiddenMask == 0) continue;
-            a_bestFreeMask = a_hiddenMask & ~(a_hiddenMask - 1);
-            a_bestIdx = Search_HiddenSingle(p_arr, a_unitOf, i, a_bestFreeMask);
-            a_bestCount = 1;
-            break;
-        }
-        // a value with exactly two homes in a unit is a narrower guess than a square with 3+ candidates
-        if (a_bestCount > 2) for (int i = 0; i < rows; ++i)
-        {
-            uint a_pairMask = rowTwiceMask[i] & ~rowThriceMask[i];
-            int[] a_unitOf = rowOf;
-            if (a_pairMask == 0) { a_pairMask = colTwiceMask[i] & ~colThriceMask[i]; a_unitOf = colOf; }
-            if (a_pairMask == 0) { a_pairMask = segTwiceMask[i] & ~segThriceMask[i]; a_unitOf = segOf; }
-            if (a_pairMask == 0) continue;
-            return FillValuePair(p_arr, p_mode, a_unitOf, i, a_pairMask & ~(a_pairMask - 1));
+            Derive_BlockEliminations(p_arr);
+            if (!Scan_Candidates(p_arr, true, ref a_bestIdx, ref a_bestCount, ref a_bestFreeMask)) return false;
+            if (a_bestCount > 1 && !Search_UnitForced(p_arr, ref a_bestIdx, ref a_bestCount, ref a_bestFreeMask)) return false;
+            // a value with exactly two homes in a unit is a narrower guess than a square with 3+ candidates
+            if (a_bestCount > 2) for (int i = 0; i < rows; ++i)
+            {
+                uint a_pairMask = rowTwiceMask[i] & ~rowThriceMask[i];
+                int[] a_unitOf = rowOf;
+                if (a_pairMask == 0) { a_pairMask = colTwiceMask[i] & ~colThriceMask[i]; a_unitOf = colOf; }
+                if (a_pairMask == 0) { a_pairMask = segTwiceMask[i] & ~segThriceMask[i]; a_unitOf = segOf; }
+                if (a_pairMask == 0) continue;
+                return FillValuePair(p_arr, p_mode, a_unitOf, i, a_pairMask & ~(a_pairMask - 1));
+            }
         }
         int a_row = rowOf[a_bestIdx], a_col = colOf[a_bestIdx], a_seg = segOf[a_bestIdx];
         for (int a_input, i = 0; i < rows; ++i)
@@ -505,6 +496,152 @@ public sealed class Sudoku
     }
 
     /// <summary>
+    /// One deduction pass over the blanks of <paramref name="p_arr"/>: refreshes <see cref="candMask"/>,
+    /// rebuilds the once/twice/thrice unit masks and picks the most constrained square.
+    /// Stops early on a naked single, leaving the unit masks incomplete — the callers' count guards cover that.
+    /// </summary>
+    /// <param name="p_arr">The grid being filled.</param>
+    /// <param name="p_refine">False derives candidates from the unit masks; true narrows the stored ones
+    /// by <see cref="rowBlockElim"/>/<see cref="colBlockElim"/> (see <see cref="Derive_BlockEliminations"/>).</param>
+    /// <param name="p_bestIdx">Receives the most constrained blank square; -1 when the grid is full.</param>
+    /// <param name="p_bestCount">Receives that square's candidate count.</param>
+    /// <param name="p_bestMask">Receives that square's candidate mask.</param>
+    /// <returns>False when some blank has no candidate left.</returns>
+    private bool Scan_Candidates(in int[] p_arr, in bool p_refine, ref int p_bestIdx, ref int p_bestCount, ref uint p_bestMask)
+    {
+        p_bestIdx = -1; p_bestCount = int.MaxValue;
+        for (int i = 0; i < rows; ++i)
+        {
+            rowOnceMask[i] = 0; colOnceMask[i] = 0; segOnceMask[i] = 0;
+            rowTwiceMask[i] = 0; colTwiceMask[i] = 0; segTwiceMask[i] = 0;
+            rowThriceMask[i] = 0; colThriceMask[i] = 0; segThriceMask[i] = 0;
+        }
+        for (int i = 0; i < squares; ++i)
+        {
+            if (p_arr[i] != 0) continue;
+            int a_r = rowOf[i], a_c = colOf[i], a_s = segOf[i];
+            uint a_freeMask = p_refine
+                ? candMask[i] & ~rowBlockElim[rowBlockOf[i]] & ~colBlockElim[colBlockOf[i]]
+                : ~(rowMask[a_r] | colMask[a_c] | segMask[a_s]) & fullMask;
+            if (a_freeMask == 0) return false;
+            candMask[i] = a_freeMask;
+            int a_count = PopCount(a_freeMask);
+            // values seen in one blank of the unit so far vs in two vs in more — singles are once & ~twice, pairs twice & ~thrice
+            rowThriceMask[a_r] |= rowTwiceMask[a_r] & a_freeMask; rowTwiceMask[a_r] |= rowOnceMask[a_r] & a_freeMask; rowOnceMask[a_r] |= a_freeMask;
+            colThriceMask[a_c] |= colTwiceMask[a_c] & a_freeMask; colTwiceMask[a_c] |= colOnceMask[a_c] & a_freeMask; colOnceMask[a_c] |= a_freeMask;
+            segThriceMask[a_s] |= segTwiceMask[a_s] & a_freeMask; segTwiceMask[a_s] |= segOnceMask[a_s] & a_freeMask; segOnceMask[a_s] |= a_freeMask;
+            if (a_count >= p_bestCount) continue;
+            p_bestCount = a_count; p_bestIdx = i; p_bestMask = a_freeMask;
+            // a forced square cannot be beaten, except by a dead one ending the fill anyway
+            if (p_bestCount == 1) break;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Unit-level deductions over the masks of a completed <see cref="Scan_Candidates"/> pass: fails the
+    /// fill when a unit can no longer host a value it still needs, and redirects the fill to a hidden
+    /// single (a value with one possible square left in a unit) when one exists.
+    /// </summary>
+    /// <param name="p_arr">The grid being filled.</param>
+    /// <param name="p_bestIdx">Updated to the hidden single's square when one is found.</param>
+    /// <param name="p_bestCount">Updated to 1 when a hidden single is found.</param>
+    /// <param name="p_bestMask">Updated to the hidden single's value bit when one is found.</param>
+    /// <returns>False when a needed value has no square left in some unit.</returns>
+    private bool Search_UnitForced(in int[] p_arr, ref int p_bestIdx, ref int p_bestCount, ref uint p_bestMask)
+    {
+        for (int i = 0; i < rows; ++i)
+        {
+            if ((fullMask & ~(rowMask[i] | rowOnceMask[i])) != 0) return false;
+            if ((fullMask & ~(colMask[i] | colOnceMask[i])) != 0) return false;
+            if ((fullMask & ~(segMask[i] | segOnceMask[i])) != 0) return false;
+            uint a_hiddenMask = rowOnceMask[i] & ~rowTwiceMask[i];
+            int[] a_unitOf = rowOf;
+            if (a_hiddenMask == 0) { a_hiddenMask = colOnceMask[i] & ~colTwiceMask[i]; a_unitOf = colOf; }
+            if (a_hiddenMask == 0) { a_hiddenMask = segOnceMask[i] & ~segTwiceMask[i]; a_unitOf = segOf; }
+            if (a_hiddenMask == 0) continue;
+            p_bestMask = a_hiddenMask & ~(a_hiddenMask - 1);
+            p_bestIdx = Search_HiddenSingle(p_arr, a_unitOf, i, p_bestMask);
+            p_bestCount = 1;
+            break;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Locked candidates: summarises <see cref="candMask"/> per block (line∩segment intersection) and
+    /// collects into <see cref="rowBlockElim"/>/<see cref="colBlockElim"/> the values each block cannot host:
+    /// a value confined to one block of a segment stays out of the block's line elsewhere (pointing),
+    /// one confined to one block of a line stays out of the block's segment elsewhere (claiming).
+    /// </summary>
+    /// <param name="p_arr">The grid being filled; <see cref="candMask"/> must describe its blanks.</param>
+    private void Derive_BlockEliminations(in int[] p_arr)
+    {
+        for (int i = 0; i < squaresInSegmentRow; ++i)
+        { rowBlockMask[i] = 0; colBlockMask[i] = 0; rowBlockElim[i] = 0; colBlockElim[i] = 0; }
+        for (int i = 0; i < squares; ++i)
+        {
+            if (p_arr[i] != 0) continue;
+            rowBlockMask[rowBlockOf[i]] |= candMask[i];
+            colBlockMask[colBlockOf[i]] |= candMask[i];
+        }
+        // per line, the values confined to a single one of its blocks
+        for (int i = 0; i < rows; ++i)
+        {
+            uint a_once = 0, a_twice = 0;
+            for (int j = i * rank, a_limitIdx = j + rank; j < a_limitIdx; ++j)
+            { a_twice |= a_once & rowBlockMask[j]; a_once |= rowBlockMask[j]; }
+            rowConfMask[i] = a_once & ~a_twice;
+            a_once = 0; a_twice = 0;
+            for (int j = i * rank, a_limitIdx = j + rank; j < a_limitIdx; ++j)
+            { a_twice |= a_once & colBlockMask[j]; a_once |= colBlockMask[j]; }
+            colConfMask[i] = a_once & ~a_twice;
+        }
+        for (int i_seg = 0; i_seg < rows; ++i_seg)
+        {
+            int a_bandIdx = i_seg / rank, a_stackIdx = i_seg % rank;
+            uint a_once = 0, a_twice = 0;
+            for (int j = 0; j < rank; ++j)
+            {
+                uint a_blockMask = rowBlockMask[(a_bandIdx * rank + j) * rank + a_stackIdx];
+                a_twice |= a_once & a_blockMask; a_once |= a_blockMask;
+            }
+            uint a_segConfMask = a_once & ~a_twice;
+            for (int a_lineIdx, a_blk, j = 0; j < rank; ++j)
+            {
+                a_lineIdx = a_bandIdx * rank + j; a_blk = a_lineIdx * rank + a_stackIdx;
+                uint a_pointMask = rowBlockMask[a_blk] & a_segConfMask;
+                uint a_claimMask = rowBlockMask[a_blk] & rowConfMask[a_lineIdx];
+                if ((a_pointMask | a_claimMask) == 0) continue;
+                for (int j2 = 0; j2 < rank; ++j2)
+                {
+                    if (j2 != a_stackIdx) rowBlockElim[a_lineIdx * rank + j2] |= a_pointMask;
+                    if (j2 != j) rowBlockElim[(a_bandIdx * rank + j2) * rank + a_stackIdx] |= a_claimMask;
+                }
+            }
+            a_once = 0; a_twice = 0;
+            for (int j = 0; j < rank; ++j)
+            {
+                uint a_blockMask = colBlockMask[(a_stackIdx * rank + j) * rank + a_bandIdx];
+                a_twice |= a_once & a_blockMask; a_once |= a_blockMask;
+            }
+            a_segConfMask = a_once & ~a_twice;
+            for (int a_lineIdx, a_blk, j = 0; j < rank; ++j)
+            {
+                a_lineIdx = a_stackIdx * rank + j; a_blk = a_lineIdx * rank + a_bandIdx;
+                uint a_pointMask = colBlockMask[a_blk] & a_segConfMask;
+                uint a_claimMask = colBlockMask[a_blk] & colConfMask[a_lineIdx];
+                if ((a_pointMask | a_claimMask) == 0) continue;
+                for (int j2 = 0; j2 < rank; ++j2)
+                {
+                    if (j2 != a_bandIdx) colBlockElim[a_lineIdx * rank + j2] |= a_pointMask;
+                    if (j2 != j) colBlockElim[(a_stackIdx * rank + j2) * rank + a_bandIdx] |= a_claimMask;
+                }
+            }
+        }
+    }
+
+    /// <summary>
     /// Locates the one blank square of a unit that can still take the value of <paramref name="p_valueBit"/>.
     /// only called after the unit scan in <see cref="FillConstrained"/> proved exactly one such square exists.
     /// </summary>
@@ -516,7 +653,7 @@ public sealed class Sudoku
     private int Search_HiddenSingle(in int[] p_arr, in int[] p_unitOf, in int p_unit, in uint p_valueBit)
     {
         for (int i = 0; i < squares; ++i)
-            if (p_arr[i] == 0 && p_unitOf[i] == p_unit && (~(rowMask[rowOf[i]] | colMask[colOf[i]] | segMask[segOf[i]]) & p_valueBit) != 0)
+            if (p_arr[i] == 0 && p_unitOf[i] == p_unit && (candMask[i] & p_valueBit) != 0)
                 return i;
         throw new InvalidOperationException("hidden single not found, logic error");
     }
@@ -537,8 +674,7 @@ public sealed class Sudoku
         int a_idx1 = -1, a_idx2 = -1;
         for (int i = 0; i < squares; ++i)
         {
-            if (p_arr[i] != 0 || p_unitOf[i] != p_unit
-                || (~(rowMask[rowOf[i]] | colMask[colOf[i]] | segMask[segOf[i]]) & p_valueBit) == 0) continue;
+            if (p_arr[i] != 0 || p_unitOf[i] != p_unit || (candMask[i] & p_valueBit) == 0) continue;
             if (a_idx1 == -1) a_idx1 = i; else { a_idx2 = i; break; }
         }
         if (a_idx2 == -1) throw new InvalidOperationException("value pair not found, logic error");
