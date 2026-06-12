@@ -15,12 +15,13 @@ public static class SudokuGen
         cmdVersion1 = "version", cmdVersion2 = "--version", cmdVersion3 = "-v",
         cmdHelp1 = "help", cmdHelp2 = "--help", cmdHelp3 = "-h",
         cmdCreate = "create", cmdSolve = "solve", cmdShuffle = "shuffle",
-        fgvRank = "-r", fgvBlanks = "-b", fgvTimes = "-t", fgvSeed = "-s", fgvInput = "-i", fgvOutput = "-o",
-        flgMinimalOutput = "-omin", flgBoardOutput = "-oboard", flgSolutionOutput = "-osol",
+        fgvRank = "-r", fgvBlanks = "-b", fgvCount = "-c", fgvSeed = "-s", fgvInput = "-i", fgvOutput = "-o",
+        flgSolutionOutput = "-osol", flgMinimalOutput = "-omin", flgBoardOutput = "-oboard", flgExactBlanks = "-exact",
         valBlanksMax = "max", valMinRank = "2", valMaxRank = "5",
         expRank = "4", expBlanks = "120", expTimes = "10", expSeed = "777",
         expInput = "./inputs.txt", expOutput = "./outputs.txt",
         expPuzz = "390560027.001809405.600172893.180257900.500643000.204081570.003096052.050328619.962010300";
+
     private const string
         helpInfo = $$"""
 
@@ -34,23 +35,24 @@ public static class SudokuGen
                 5. {{cmdHelp1}}, {{cmdHelp2}}, {{cmdHelp3}} {{"\t\t"}}: Shows usage info.
 
             flags with value -
-                1. {{fgvRank}} {{"\t"}}: Specify rank of sudoku. Rank = { r | r ∈ N, {{valMinRank}} <= r <= {{valMaxRank}} } where Command = { {{cmdCreate}} }. Higher ranks take much longer.
+                1. {{fgvRank}} {{"\t"}}: Specify rank of sudoku. Rank = { r | r ∈ N, {{valMinRank}} <= r <= {{valMaxRank}} } where Command = { {{cmdCreate}} }.
                 2. {{fgvBlanks}} {{"\t"}}: Specify target blanks in sudoku. Blanks = { b | b ∈ N, 0 <= b <= Rank^4 } or '{{valBlanksMax}}' where Command = { {{cmdCreate}} }.
-                3. {{fgvTimes}} {{"\t"}}: Specify number of sudokus. Times = { t | t ∈ N, t >= 1 } where Command = { {{cmdCreate}} }.
+                3. {{fgvCount}} {{"\t"}}: Specify number of sudokus. Count = { t | t ∈ N, t >= 1 } where Command = { {{cmdCreate}} }.
                 4. {{fgvSeed}} {{"\t"}}: Specify seed for reproducible results. Where Command = { {{cmdCreate}}, {{cmdShuffle}} }.
                 5. {{fgvInput}} {{"\t"}}: Specify input .txt file. Where Command = { {{cmdSolve}}, {{cmdShuffle}} }.
                 6. {{fgvOutput}} {{"\t"}}: Specify output .txt file. Where Command = { {{cmdCreate}}, {{cmdSolve}}, {{cmdShuffle}} }.
 
             flags without value -
-                1. {{flgMinimalOutput}} {{"\t"}}: Give minimal output. Where Command = { {{cmdCreate}}, {{cmdSolve}}, {{cmdShuffle}} }.
-                2. {{flgBoardOutput}} {{"\t"}}: Draw output in a formatted board. Where Command = { {{cmdCreate}}, {{cmdSolve}}, {{cmdShuffle}} }.
-                3. {{flgSolutionOutput}} {{"\t"}}: Include the solution. Where Command = { {{cmdCreate}}, {{cmdShuffle}} }.
+                1. {{flgSolutionOutput}} {{"\t"}}: Include the solution. Where Command = { {{cmdCreate}}, {{cmdShuffle}} }.
+                2. {{flgMinimalOutput}} {{"\t"}}: Give minimal output. Where Command = { {{cmdCreate}}, {{cmdSolve}}, {{cmdShuffle}} }.
+                3. {{flgBoardOutput}} {{"\t"}}: Draw output in a formatted board. Where Command = { {{cmdCreate}}, {{cmdSolve}}, {{cmdShuffle}} }.
+                4. {{flgExactBlanks}} {{"\t"}}: Skip the internal search budget. Can run very long at high ranks. Where Command = { {{cmdCreate}} }.
 
             examples -
                 1. {{cmdCreate}}
                 2. {{cmdCreate}} {{fgvRank}} {{expRank}} {{fgvBlanks}} {{expBlanks}} {{fgvSeed}} {{expSeed}}
-                3. {{cmdCreate}} {{fgvBlanks}} {{valBlanksMax}}
-                4. {{cmdCreate}} {{fgvTimes}} {{expTimes}} {{fgvOutput}} {{expOutput}}
+                3. {{cmdCreate}} {{fgvBlanks}} {{valBlanksMax}} {{flgExactBlanks}}
+                4. {{cmdCreate}} {{fgvCount}} {{expTimes}} {{fgvOutput}} {{expOutput}}
                 5. {{cmdSolve}} {{expPuzz}}
                 6. {{cmdSolve}} {{fgvInput}} {{expInput}} {{fgvOutput}} {{expOutput}}
                 7. {{cmdShuffle}} {{expPuzz}} {{fgvSeed}} {{expSeed}}
@@ -93,8 +95,7 @@ public static class SudokuGen
         }
         return a_visual.ToString();
     }
-    private static void Print(in string p_message) => Console.WriteLine(p_message);
-    private static void PrintError(in string p_message) => Console.Error.WriteLine(p_message);
+
     private static int ProcessInputs(in string[] p_inputs)
     {
         // a bare launch is someone exploring, not a script gone wrong - greet with the usage info
@@ -104,20 +105,25 @@ public static class SudokuGen
         void Error_ValueForFlag(in string p_flag, in string p_value)
             => PrintError($"invalid value '{p_value}' for flag '{p_flag}'");
         CLAP a_clap = new([cmdCreate, cmdSolve, cmdShuffle, cmdVersion1, cmdVersion2, cmdVersion3, cmdHelp1, cmdHelp2, cmdHelp3],
-            [flgMinimalOutput, flgBoardOutput, flgSolutionOutput],
-            [fgvRank, fgvBlanks, fgvTimes, fgvSeed, fgvInput, fgvOutput]);
+            [flgMinimalOutput, flgBoardOutput, flgSolutionOutput, flgExactBlanks],
+            [fgvRank, fgvBlanks, fgvCount, fgvSeed, fgvInput, fgvOutput]);
         (bool a_success, string a_cmd_or_msg) = a_clap.Process(p_inputs);
         if (!a_success) { PrintError($"{a_cmd_or_msg} (try '{cmdHelp1}')"); return 1; }
         int a_rank = dftRank, a_times = dftTimes;
         int? a_blanks = null, a_seed = null;
         bool a_blanksMax = false;
-        bool a_minimalOutput = false, a_boardOutput = false, a_solutionOutput = false;
+        bool a_minimalOutput = false, a_boardOutput = false, a_solutionOutput = false, a_exactBlanks = false;
         string? a_inputPath = null, a_outputPath = null;
         foreach (KeyValuePair<string, bool> a_kvp in a_clap.flags)
         {
             if (!a_kvp.Value) continue;
             switch (a_kvp.Key)
             {
+                case flgSolutionOutput:
+                    if (a_cmd_or_msg is not (cmdCreate or cmdShuffle))
+                    { Error_FlagForCommand(a_kvp.Key, a_cmd_or_msg); return 1; }
+                    a_solutionOutput = true;
+                    break;
                 case flgMinimalOutput:
                     if (a_cmd_or_msg is not (cmdCreate or cmdSolve or cmdShuffle))
                     { Error_FlagForCommand(a_kvp.Key, a_cmd_or_msg); return 1; }
@@ -128,10 +134,10 @@ public static class SudokuGen
                     { Error_FlagForCommand(a_kvp.Key, a_cmd_or_msg); return 1; }
                     a_boardOutput = true;
                     break;
-                case flgSolutionOutput:
-                    if (a_cmd_or_msg is not (cmdCreate or cmdShuffle))
+                case flgExactBlanks:
+                    if (a_cmd_or_msg is not cmdCreate)
                     { Error_FlagForCommand(a_kvp.Key, a_cmd_or_msg); return 1; }
-                    a_solutionOutput = true;
+                    a_exactBlanks = true;
                     break;
                 default: PrintError($"unhandled flag '{a_kvp.Key}'"); return 1;
             }
@@ -156,7 +162,7 @@ public static class SudokuGen
                     { Error_ValueForFlag(a_kvp.Key, a_kvp.Value); return 1; }
                     a_blanks = a_blanksValue;
                     break;
-                case fgvTimes:
+                case fgvCount:
                     if (a_cmd_or_msg is not cmdCreate)
                     { Error_FlagForCommand(a_kvp.Key, a_cmd_or_msg); return 1; }
                     if (!int.TryParse(a_kvp.Value, out a_times) || a_times < 1)
@@ -218,8 +224,8 @@ public static class SudokuGen
                         _ = a_output.Append(a_minimalOutput ? "> " : $"{1 + i}.\t");
                         Stopwatch a_watch = Stopwatch.StartNew();
                         Sudoku a_sudoku = a_seed is int a_seedNum
-                            ? Sudoku.Create(a_rank, a_blanksFinal, a_seedNum)
-                            : Sudoku.Create(a_rank, a_blanksFinal);
+                            ? Sudoku.Create(a_rank, a_blanksFinal, a_seedNum, a_exactBlanks)
+                            : Sudoku.Create(a_rank, a_blanksFinal, a_exactBlanks);
                         _ = a_output.Append(GetSudokuVisual(a_sudoku, $"{a_watch.Elapsed.TotalMilliseconds}ms",
                             !a_minimalOutput, true, a_solutionOutput, a_boardOutput));
                     }
@@ -262,5 +268,8 @@ public static class SudokuGen
         }
         return a_anyFailed ? 1 : 0;
     }
+
+    private static void Print(in string p_message) => Console.WriteLine(p_message);
+    private static void PrintError(in string p_message) => Console.Error.WriteLine(p_message);
     public static int Main(string[] p_args) => ProcessInputs(p_args);
 }
