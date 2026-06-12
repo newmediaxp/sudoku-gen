@@ -6,7 +6,7 @@ using static Utility;
 
 /// <summary>
 /// An immutable sudoku puzzle/solution pair, obtained via
-/// <see cref="Create(in int, in int)"/> (new random puzzle),
+/// <see cref="Create(in int, in int, in bool)"/> (new random puzzle),
 /// <see cref="Solve"/> (from existing inputs) or
 /// <see cref="Shuffle()"/> (equivalent variant).
 /// Grids are flat row-by-row lists of <see cref="squares"/> values, 0 = blank.
@@ -14,12 +14,14 @@ using static Utility;
 /// </summary>
 public sealed class Sudoku
 {
-    /// <summary>Lowest supported <see cref="rank"/>.</summary>
-    public const int minRank = 2;
-    /// <summary>Highest supported <see cref="rank"/>; bounded by the single-character
-    /// puzzle code format (values above 35 are unrepresentable) and by generation cost,
-    /// which grows steeply with rank.</summary>
-    public const int maxRank = 5;
+    public const int minRank = 2, maxRank = 5;
+
+    /// <summary>
+    /// Search nodes a single solvability trial in <see cref="UniqueWithout"/> may spend before giving up on the removal.
+    /// Bounds <see cref="Create(in int, in int, in bool)"/>'s runtime at extreme blank counts without ever
+    /// breaking uniqueness; bypassed by its exhaustive flag.
+    /// </summary>
+    private const int trialBudgetPerSquare = 100;
 
     /// <summary>
     /// Segment size of the sudoku: 2 = 4x4 up to 5 = 25x25.
@@ -48,12 +50,16 @@ public sealed class Sudoku
     private readonly uint[] rowMask, colMask, segMask;
     private readonly uint[] rowOnceMask, colOnceMask, segOnceMask;
     private readonly uint[] rowTwiceMask, colTwiceMask, segTwiceMask;
+    private readonly uint[] rowThriceMask, colThriceMask, segThriceMask;
     private readonly uint fullMask;
     private readonly int[] rowOf, colOf, segOf;
     private readonly Random random;
+    private readonly int trialBudget;
+    private int fillNodesLeft;
 
     /// <summary>
-    /// Actual number of blanks in the puzzle. Can be lower than <see cref="remove"/> when further removal would break uniqueness.
+    /// Actual number of blanks in the puzzle. Can be lower than <see cref="remove"/> when further removal
+    /// would break uniqueness (or exceed the internal search budget at extreme blank counts).
     /// </summary>
     public int Removed { get; private set; }
 
@@ -69,7 +75,7 @@ public sealed class Sudoku
 
     /// <exception cref="ArgumentException">The rank is outside <see cref="minRank"/>..<see cref="maxRank"/>,
     /// or the requested blanks are negative.</exception>
-    private Sudoku(in int p_rank, in int p_remove, in Random p_random)
+    private Sudoku(in int p_rank, in int p_remove, in Random p_random, in bool p_exhaustive = false)
     {
         if (p_rank < minRank || p_rank > maxRank)
             throw new ArgumentException($"rank must be within {minRank}..{maxRank}", nameof(p_rank));
@@ -81,6 +87,7 @@ public sealed class Sudoku
             throw new ArgumentException($"blanks must be within 0 .. rank^4", nameof(p_remove));
         remove = p_remove;
         random = p_random;
+        trialBudget = p_exhaustive ? int.MaxValue : squares * trialBudgetPerSquare;
         puzzle = new int[squares];
         solution = new int[squares];
         altSolution = new int[squares];
@@ -94,6 +101,9 @@ public sealed class Sudoku
         rowTwiceMask = new uint[rows];
         colTwiceMask = new uint[rows];
         segTwiceMask = new uint[rows];
+        rowThriceMask = new uint[rows];
+        colThriceMask = new uint[rows];
+        segThriceMask = new uint[rows];
         fullMask = ((1u << rows) - 1) << 1;
         rowOf = new int[squares];
         colOf = new int[squares];
@@ -113,21 +123,32 @@ public sealed class Sudoku
     /// </summary>
     /// <param name="p_rank">Segment size of the sudoku, <see cref="minRank"/> to <see cref="maxRank"/>.</param>
     /// <param name="p_remove">Desired number of blank squares. Fewer are blanked when further removal would break uniqueness.</param>
+    /// <param name="p_exhaustive">Skips the internal search budget, making the achieved blank count exact
+    /// instead of near-maximal. Can run extremely long at high ranks with extreme blank counts
+    /// (rank 5 max-blanks: upwards of half an hour where the budgeted run takes a minute).</param>
     /// <exception cref="ArgumentException">The rank is outside <see cref="minRank"/>..<see cref="maxRank"/>,
     /// or the requested blanks are negative.</exception>
-    public static Sudoku Create(in int p_rank, in int p_remove) => Create(p_rank, p_remove, new Random());
+    public static Sudoku Create(in int p_rank, in int p_remove, in bool p_exhaustive = false)
+        => Create(p_rank, p_remove, new Random(), p_exhaustive);
 
-    /// <summary>Seeded variant of Create: the same seed always reproduces the same sudoku.</summary>
+    /// <summary>
+    /// Seeded variant of Create: the same seed always reproduces the same sudoku.
+    /// </summary>
     /// <param name="p_rank">Segment size of the sudoku, <see cref="minRank"/> to <see cref="maxRank"/>.</param>
     /// <param name="p_remove">Desired number of blank squares. Fewer are blanked when further removal would break uniqueness.</param>
-    /// <param name="p_seed">Seed for the random generator. Determines the resulting sudoku.</param>
+    /// <param name="p_seed">Seed for the random generator. Determines the resulting sudoku together with <paramref name="p_exhaustive"/>.</param>
+    /// <param name="p_exhaustive">Skips the internal search budget, making the achieved blank count exact
+    /// instead of near-maximal. Can run extremely long at high ranks with extreme blank counts
+    /// (rank 5 max-blanks: upwards of half an hour where the budgeted run takes a minute).
+    /// The same seed can produce different puzzles budgeted vs exhaustive.</param>
     /// <exception cref="ArgumentException">The rank is outside <see cref="minRank"/>..<see cref="maxRank"/>,
     /// or the requested blanks are negative.</exception>
-    public static Sudoku Create(in int p_rank, in int p_remove, in int p_seed) => Create(p_rank, p_remove, new Random(p_seed));
+    public static Sudoku Create(in int p_rank, in int p_remove, in int p_seed, in bool p_exhaustive = false)
+        => Create(p_rank, p_remove, new Random(p_seed), p_exhaustive);
 
-    private static Sudoku Create(in int p_rank, in int p_remove, in Random p_random)
+    private static Sudoku Create(in int p_rank, in int p_remove, in Random p_random, in bool p_exhaustive)
     {
-        Sudoku a_sudoku = new(p_rank, p_remove, p_random);
+        Sudoku a_sudoku = new(p_rank, p_remove, p_random, p_exhaustive);
         a_sudoku.FillAll();
         a_sudoku.Prune();
         // a final shuffle washes out the positional bias of the backtracking fill
@@ -151,9 +172,10 @@ public sealed class Sudoku
     }
 
     /// <summary>
-    /// True when <see cref="puzzle"/> stays uniquely solvable after blanking <paramref name="p_idx"/>:
-    /// the puzzle was unique before the removal, so a second solution would have to place a
-    /// different value at that square — only the other conflict-free candidates there are probed for solvability.
+    /// True when <see cref="puzzle"/> stays uniquely solvable after blanking <paramref name="p_idx"/>.
+    /// The puzzle was unique before the removal, so a second solution would have to place another
+    /// conflict-free candidate there; each is trialled for solvability under <see cref="trialBudget"/>.
+    /// An exhausted trial counts as solvable, rejecting the removal — safe, but may undershoot max blanks.
     /// </summary>
     /// <param name="p_idx">Index of the square just blanked in <see cref="puzzle"/>.</param>
     /// <param name="p_removed">The <see cref="solution"/> value the square held before blanking.</param>
@@ -162,13 +184,13 @@ public sealed class Sudoku
     {
         Copy(puzzle, altSolution);
         LoadMasks(altSolution);
-        // captured before the probes below rebuild the masks
+        // captured before the trials below rebuild the masks
         uint a_usedMask = rowMask[rowOf[p_idx]] | colMask[colOf[p_idx]] | segMask[segOf[p_idx]];
         for (int a_input = 1; a_input <= rows; ++a_input)
         {
             if (a_input == p_removed || (a_usedMask & 1u << a_input) != 0) continue;
             altSolution[p_idx] = a_input;
-            if (FillRemaining(altSolution, FillMode.NoInput)) return false;
+            if (FillRemaining(altSolution, FillMode.NoInput, trialBudget)) return false;
             // a failed fill backtracks every square it set, so only p_idx needs resetting
             altSolution[p_idx] = 0;
         }
@@ -176,7 +198,8 @@ public sealed class Sudoku
     }
 
     /// <summary>
-    /// Blanks random squares one at a time, keeping only removals that preserve uniqueness (via <see cref="UniqueWithout"/>), until <see cref="remove"/> blanks are reached or no square can be removed.
+    /// Blanks random squares one at a time, keeping only removals that preserve uniqueness (via <see cref="UniqueWithout"/>), 
+    /// until <see cref="remove"/> blanks are reached or no square can be removed.
     /// </summary>
     private void Prune()
     {
@@ -396,39 +419,41 @@ public sealed class Sudoku
     }
 
     /// <summary>
-    /// Recursive backtracker over the blank squares of <paramref name="p_arr"/>, always working on the
-    /// most constrained blank (fewest legal candidates) first. Forced squares are placed without branching
-    /// and dead grids are detected the moment any blank has no candidate left, which keeps the search tree
-    /// small where grid-order filling degenerates (high ranks, many blanks).
-    /// When no square is forced outright, hidden singles take over: a value legal in exactly one blank of
-    /// a unit is placed there without branching, and a unit that can no longer host a value it still needs
-    /// fails the fill immediately — both deductions keep every completion, so the fill result is unaffected.
+    /// Recursive backtracker over the blank squares of <paramref name="p_arr"/>, always working on the most constrained blank first, 
+    /// forced squares (one candidate left, or a hidden single) are placed without branching, 
+    /// and a grid is abandoned the moment any blank or needed unit value runs out of options. Both deductions keep every completion.
+    /// When guessing is unavoidable, a two-homes value (see <see cref="FillValuePair"/>) is preferred over a square with 3+ candidates.
     /// <paramref name="p_mode"/> decides the candidate order per square.
-    /// The masks must describe <paramref name="p_arr"/> on entry (see <see cref="LoadMasks"/>).
-    /// They are kept in sync while filling, but are stale after a completed fill — enter via <see cref="FillRemaining"/>.
+    /// The masks must describe <paramref name="p_arr"/> on entry and are stale after a completed fill —
+    /// enter via <see cref="FillRemaining"/>.
     /// </summary>
     /// <param name="p_arr">The grid to fill, <see cref="solution"/> or <see cref="altSolution"/>.</param>
     /// <param name="p_mode">Candidate order per square.</param>
-    /// <returns>True when the grid was completed; a failed fill leaves <paramref name="p_arr"/> and the masks unchanged.</returns>
+    /// <returns>True when the grid was completed, or the node budget ran out (leaving <paramref name="p_arr"/>
+    /// partially filled — see <see cref="FillRemaining"/>); a failed fill leaves it and the masks unchanged.</returns>
     private bool FillConstrained(in int[] p_arr, in FillMode p_mode)
     {
+        // out of budget: give up, reporting the grid completable — the conservative answer for uniqueness trials
+        if (--fillNodesLeft < 0) return true;
         int a_bestIdx = -1, a_bestCount = int.MaxValue;
         uint a_bestFreeMask = 0;
         for (int i = 0; i < rows; ++i)
         {
             rowOnceMask[i] = 0; colOnceMask[i] = 0; segOnceMask[i] = 0;
             rowTwiceMask[i] = 0; colTwiceMask[i] = 0; segTwiceMask[i] = 0;
+            rowThriceMask[i] = 0; colThriceMask[i] = 0; segThriceMask[i] = 0;
         }
         for (int i = 0; i < squares; ++i)
         {
             if (p_arr[i] != 0) continue;
-            uint a_freeMask = ~(rowMask[rowOf[i]] | colMask[colOf[i]] | segMask[segOf[i]]) & fullMask;
+            int a_r = rowOf[i], a_c = colOf[i], a_s = segOf[i];
+            uint a_freeMask = ~(rowMask[a_r] | colMask[a_c] | segMask[a_s]) & fullMask;
             int a_count = PopCount(a_freeMask);
             if (a_count == 0) return false;
-            // values seen in one blank of the unit so far vs in several — singles are once & ~twice
-            rowTwiceMask[rowOf[i]] |= rowOnceMask[rowOf[i]] & a_freeMask; rowOnceMask[rowOf[i]] |= a_freeMask;
-            colTwiceMask[colOf[i]] |= colOnceMask[colOf[i]] & a_freeMask; colOnceMask[colOf[i]] |= a_freeMask;
-            segTwiceMask[segOf[i]] |= segOnceMask[segOf[i]] & a_freeMask; segOnceMask[segOf[i]] |= a_freeMask;
+            // values seen in one blank of the unit so far vs in two vs in more — singles are once & ~twice, pairs twice & ~thrice
+            rowThriceMask[a_r] |= rowTwiceMask[a_r] & a_freeMask; rowTwiceMask[a_r] |= rowOnceMask[a_r] & a_freeMask; rowOnceMask[a_r] |= a_freeMask;
+            colThriceMask[a_c] |= colTwiceMask[a_c] & a_freeMask; colTwiceMask[a_c] |= colOnceMask[a_c] & a_freeMask; colOnceMask[a_c] |= a_freeMask;
+            segThriceMask[a_s] |= segTwiceMask[a_s] & a_freeMask; segTwiceMask[a_s] |= segOnceMask[a_s] & a_freeMask; segOnceMask[a_s] |= a_freeMask;
             if (a_count >= a_bestCount) continue;
             a_bestCount = a_count; a_bestIdx = i; a_bestFreeMask = a_freeMask;
             // a forced square cannot be beaten, except by a dead one ending the fill anyway
@@ -436,22 +461,31 @@ public sealed class Sudoku
         }
         if (a_bestIdx == -1) return true;
         // only a complete scan fully accumulates the unit masks; a naked single needs no hidden one anyway
-        if (a_bestCount > 1)
-            for (int i = 0; i < rows; ++i)
-            {
-                if ((fullMask & ~(rowMask[i] | rowOnceMask[i])) != 0) return false;
-                if ((fullMask & ~(colMask[i] | colOnceMask[i])) != 0) return false;
-                if ((fullMask & ~(segMask[i] | segOnceMask[i])) != 0) return false;
-                uint a_hiddenMask = rowOnceMask[i] & ~rowTwiceMask[i];
-                int[] a_unitOf = rowOf;
-                if (a_hiddenMask == 0) { a_hiddenMask = colOnceMask[i] & ~colTwiceMask[i]; a_unitOf = colOf; }
-                if (a_hiddenMask == 0) { a_hiddenMask = segOnceMask[i] & ~segTwiceMask[i]; a_unitOf = segOf; }
-                if (a_hiddenMask == 0) continue;
-                a_bestFreeMask = a_hiddenMask & ~(a_hiddenMask - 1);
-                a_bestIdx = Search_HiddenSingle(p_arr, a_unitOf, i, a_bestFreeMask);
-                a_bestCount = 1;
-                break;
-            }
+        if (a_bestCount > 1) for (int i = 0; i < rows; ++i)
+        {
+            if ((fullMask & ~(rowMask[i] | rowOnceMask[i])) != 0) return false;
+            if ((fullMask & ~(colMask[i] | colOnceMask[i])) != 0) return false;
+            if ((fullMask & ~(segMask[i] | segOnceMask[i])) != 0) return false;
+            uint a_hiddenMask = rowOnceMask[i] & ~rowTwiceMask[i];
+            int[] a_unitOf = rowOf;
+            if (a_hiddenMask == 0) { a_hiddenMask = colOnceMask[i] & ~colTwiceMask[i]; a_unitOf = colOf; }
+            if (a_hiddenMask == 0) { a_hiddenMask = segOnceMask[i] & ~segTwiceMask[i]; a_unitOf = segOf; }
+            if (a_hiddenMask == 0) continue;
+            a_bestFreeMask = a_hiddenMask & ~(a_hiddenMask - 1);
+            a_bestIdx = Search_HiddenSingle(p_arr, a_unitOf, i, a_bestFreeMask);
+            a_bestCount = 1;
+            break;
+        }
+        // a value with exactly two homes in a unit is a narrower guess than a square with 3+ candidates
+        if (a_bestCount > 2) for (int i = 0; i < rows; ++i)
+        {
+            uint a_pairMask = rowTwiceMask[i] & ~rowThriceMask[i];
+            int[] a_unitOf = rowOf;
+            if (a_pairMask == 0) { a_pairMask = colTwiceMask[i] & ~colThriceMask[i]; a_unitOf = colOf; }
+            if (a_pairMask == 0) { a_pairMask = segTwiceMask[i] & ~segThriceMask[i]; a_unitOf = segOf; }
+            if (a_pairMask == 0) continue;
+            return FillValuePair(p_arr, p_mode, a_unitOf, i, a_pairMask & ~(a_pairMask - 1));
+        }
         int a_row = rowOf[a_bestIdx], a_col = colOf[a_bestIdx], a_seg = segOf[a_bestIdx];
         for (int a_input, i = 0; i < rows; ++i)
         {
@@ -471,7 +505,7 @@ public sealed class Sudoku
     }
 
     /// <summary>
-    /// Locates the one blank square of a unit that can still take the value of <paramref name="p_valueBit"/>;
+    /// Locates the one blank square of a unit that can still take the value of <paramref name="p_valueBit"/>.
     /// only called after the unit scan in <see cref="FillConstrained"/> proved exactly one such square exists.
     /// </summary>
     /// <param name="p_arr">The grid being filled.</param>
@@ -482,10 +516,45 @@ public sealed class Sudoku
     private int Search_HiddenSingle(in int[] p_arr, in int[] p_unitOf, in int p_unit, in uint p_valueBit)
     {
         for (int i = 0; i < squares; ++i)
-            if (p_arr[i] == 0 && p_unitOf[i] == p_unit
-                && (~(rowMask[rowOf[i]] | colMask[colOf[i]] | segMask[segOf[i]]) & p_valueBit) != 0)
+            if (p_arr[i] == 0 && p_unitOf[i] == p_unit && (~(rowMask[rowOf[i]] | colMask[colOf[i]] | segMask[segOf[i]]) & p_valueBit) != 0)
                 return i;
         throw new InvalidOperationException("hidden single not found, logic error");
+    }
+
+    /// <summary>
+    /// Binary branch of <see cref="FillConstrained"/>: places the value of <paramref name="p_valueBit"/> in
+    /// each of its two possible squares of a unit in turn and recurses — every completion must use one of them.
+    /// In Uniqueness mode the square matching <see cref="solution"/> is tried last, preserving the steer-away order.
+    /// </summary>
+    /// <param name="p_arr">The grid being filled.</param>
+    /// <param name="p_mode">Candidate order per square, passed through to the recursion.</param>
+    /// <param name="p_unitOf">Square→unit lookup of the unit's type: <see cref="rowOf"/>, <see cref="colOf"/> or <see cref="segOf"/>.</param>
+    /// <param name="p_unit">Index of the unit within its type.</param>
+    /// <param name="p_valueBit">Bit of the value with exactly two possible squares in the unit.</param>
+    /// <returns>True when the grid was completed; see <see cref="FillConstrained"/> for the budget caveat.</returns>
+    private bool FillValuePair(in int[] p_arr, in FillMode p_mode, in int[] p_unitOf, in int p_unit, in uint p_valueBit)
+    {
+        int a_idx1 = -1, a_idx2 = -1;
+        for (int i = 0; i < squares; ++i)
+        {
+            if (p_arr[i] != 0 || p_unitOf[i] != p_unit
+                || (~(rowMask[rowOf[i]] | colMask[colOf[i]] | segMask[segOf[i]]) & p_valueBit) == 0) continue;
+            if (a_idx1 == -1) a_idx1 = i; else { a_idx2 = i; break; }
+        }
+        if (a_idx2 == -1) throw new InvalidOperationException("value pair not found, logic error");
+        int a_input = 0;
+        for (uint i = p_valueBit; i > 1; i >>= 1) ++a_input;
+        if (p_mode == FillMode.Uniqueness && solution[a_idx1] == a_input) (a_idx1, a_idx2) = (a_idx2, a_idx1);
+        for (int a_idx = a_idx1, i = 0; i < 2; ++i, a_idx = a_idx2)
+        {
+            int a_row = rowOf[a_idx], a_col = colOf[a_idx], a_seg = segOf[a_idx];
+            p_arr[a_idx] = a_input;
+            rowMask[a_row] |= p_valueBit; colMask[a_col] |= p_valueBit; segMask[a_seg] |= p_valueBit;
+            if (FillConstrained(p_arr, p_mode)) return true;
+            rowMask[a_row] &= ~p_valueBit; colMask[a_col] &= ~p_valueBit; segMask[a_seg] &= ~p_valueBit;
+            p_arr[a_idx] = 0;
+        }
+        return false;
     }
 
     /// <summary>
@@ -493,9 +562,12 @@ public sealed class Sudoku
     /// </summary>
     /// <param name="p_arr">The grid to fill, <see cref="solution"/> or <see cref="altSolution"/>.</param>
     /// <param name="p_mode">Candidate order per square.</param>
-    /// <returns>True when the grid was completed; a failed fill leaves <paramref name="p_arr"/> unchanged.</returns>
-    private bool FillRemaining(in int[] p_arr, in FillMode p_mode)
+    /// <param name="p_nodeBudget">Search nodes the fill may spend; exhaustive when omitted. An exhausted fill
+    /// returns true but leaves <paramref name="p_arr"/> partially filled — only safe on scratch grids (see <see cref="UniqueWithout"/>).</param>
+    /// <returns>True when the grid was completed (or the budget ran out); a failed fill leaves <paramref name="p_arr"/> unchanged.</returns>
+    private bool FillRemaining(in int[] p_arr, in FillMode p_mode, in int p_nodeBudget = int.MaxValue)
     {
+        fillNodesLeft = p_nodeBudget;
         LoadMasks(p_arr);
         return FillConstrained(p_arr, p_mode);
     }

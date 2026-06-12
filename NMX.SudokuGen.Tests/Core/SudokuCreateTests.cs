@@ -96,6 +96,24 @@ public sealed class SudokuCreateTests
     }
 
     [Fact]
+    public void Create_Exhaustive_PuzzleStaysUniquelySolvable()
+    {
+        Sudoku a_sudoku = Sudoku.Create(3, 81, p_exhaustive: true);
+        GridAssert.ValidGrid(a_sudoku.Solution, 3);
+        GridAssert.PuzzleMatchesSolution(a_sudoku.Puzzle, a_sudoku.Solution);
+        Assert.True(Same(a_sudoku.Solution, Sudoku.Solve(a_sudoku.Puzzle).Solution));
+    }
+
+    [Fact]
+    public void Create_Exhaustive_SameSeed_ReproducesSamePuzzle()
+    {
+        Sudoku a_sudoku1 = Sudoku.Create(3, 81, 12345, p_exhaustive: true);
+        Sudoku a_sudoku2 = Sudoku.Create(3, 81, 12345, p_exhaustive: true);
+        Assert.True(Same(a_sudoku1.Solution, a_sudoku2.Solution));
+        Assert.True(Same(a_sudoku1.Puzzle, a_sudoku2.Puzzle));
+    }
+
+    [Fact]
     public void Create_InParallel_ProducesValidUniquePuzzles()
     {
         Sudoku[] a_sudokus = new Sudoku[16];
