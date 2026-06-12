@@ -46,6 +46,8 @@ public sealed class Sudoku
     private readonly int[] puzzle, solution;
     private readonly int[] altSolution, randomRows;
     private readonly uint[] rowMask, colMask, segMask;
+    private readonly uint[] rowOnceMask, colOnceMask, segOnceMask;
+    private readonly uint[] rowTwiceMask, colTwiceMask, segTwiceMask;
     private readonly uint fullMask;
     private readonly int[] rowOf, colOf, segOf;
     private readonly Random random;
@@ -86,6 +88,12 @@ public sealed class Sudoku
         rowMask = new uint[rows];
         colMask = new uint[rows];
         segMask = new uint[rows];
+        rowOnceMask = new uint[rows];
+        colOnceMask = new uint[rows];
+        segOnceMask = new uint[rows];
+        rowTwiceMask = new uint[rows];
+        colTwiceMask = new uint[rows];
+        segTwiceMask = new uint[rows];
         fullMask = ((1u << rows) - 1) << 1;
         rowOf = new int[squares];
         colOf = new int[squares];
@@ -122,6 +130,63 @@ public sealed class Sudoku
         a_sudoku.Prune();
         // a final shuffle washes out the positional bias of the backtracking fill
         return a_sudoku.Shuffle(p_random);
+    }
+
+    /// <summary>
+    /// Seeds the diagonal segments with random permutations. They never share a row or column, so they can be filled independently without backtracking.
+    /// </summary>
+    private void Set_DiagonalSegments(in int[] p_arr)
+    {
+        int[] a_inputs = new int[squaresInSegmentRow];
+        InitRandom(random, a_inputs, rows, true);
+        for (int i_seg = 0; i_seg < rank; ++i_seg)
+            for (int a_startIdx = i_seg * rank * (rows + 1), i_row = 0; i_row < rank; ++i_row)
+                for (int i_col = 0; i_col < rank; ++i_col)
+                {
+                    int a_idx = a_startIdx + i_row * rows + i_col;
+                    p_arr[a_idx] = a_inputs[i_seg * rows + i_row * rank + i_col];
+                }
+    }
+
+    /// <summary>
+    /// True when <see cref="puzzle"/> stays uniquely solvable after blanking <paramref name="p_idx"/>:
+    /// the puzzle was unique before the removal, so a second solution would have to place a
+    /// different value at that square — only the other conflict-free candidates there are probed for solvability.
+    /// </summary>
+    /// <param name="p_idx">Index of the square just blanked in <see cref="puzzle"/>.</param>
+    /// <param name="p_removed">The <see cref="solution"/> value the square held before blanking.</param>
+    /// <returns>True when no alternative value at <paramref name="p_idx"/> completes the puzzle.</returns>
+    private bool UniqueWithout(in int p_idx, in int p_removed)
+    {
+        Copy(puzzle, altSolution);
+        LoadMasks(altSolution);
+        // captured before the probes below rebuild the masks
+        uint a_usedMask = rowMask[rowOf[p_idx]] | colMask[colOf[p_idx]] | segMask[segOf[p_idx]];
+        for (int a_input = 1; a_input <= rows; ++a_input)
+        {
+            if (a_input == p_removed || (a_usedMask & 1u << a_input) != 0) continue;
+            altSolution[p_idx] = a_input;
+            if (FillRemaining(altSolution, FillMode.NoInput)) return false;
+            // a failed fill backtracks every square it set, so only p_idx needs resetting
+            altSolution[p_idx] = 0;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Blanks random squares one at a time, keeping only removals that preserve uniqueness (via <see cref="UniqueWithout"/>), until <see cref="remove"/> blanks are reached or no square can be removed.
+    /// </summary>
+    private void Prune()
+    {
+        int[] a_indexes = new int[squares];
+        InitRandom(random, a_indexes, squares, false);
+        Copy(solution, puzzle); Removed = 0;
+        for (int a_input, i = 0; i < a_indexes.Length && Removed < remove; ++i)
+        {
+            a_input = puzzle[a_indexes[i]]; if (a_input == 0) continue;
+            puzzle[a_indexes[i]] = 0; if (UniqueWithout(a_indexes[i], a_input)) { ++Removed; continue; }
+            puzzle[a_indexes[i]] = a_input;
+        }
     }
 
     #region Conflict
@@ -254,24 +319,6 @@ public sealed class Sudoku
 
     #endregion
 
-    /// <summary>
-    /// Seeds the diagonal segments with random permutations. They never share a row or column, so they can be filled independently without backtracking.
-    /// </summary>
-    private void Set_DiagonalSegments(in int[] p_arr)
-    {
-        int[] a_inputs = new int[squaresInSegmentRow];
-        InitRandom(random, a_inputs, rows, true);
-        for (int i_seg = 0; i_seg < rank; ++i_seg)
-            for (int a_startIdx = i_seg * rank * (rows + 1), i_row = 0; i_row < rank; ++i_row)
-                for (int i_col = 0; i_col < rank; ++i_col)
-                {
-                    int a_idx = a_startIdx + i_row * rows + i_col;
-                    p_arr[a_idx] = a_inputs[i_seg * rows + i_row * rank + i_col];
-                }
-    }
-
-
-
     #region Fill
 
     /// <summary>
@@ -349,6 +396,9 @@ public sealed class Sudoku
     /// most constrained blank (fewest legal candidates) first. Forced squares are placed without branching
     /// and dead grids are detected the moment any blank has no candidate left, which keeps the search tree
     /// small where grid-order filling degenerates (high ranks, many blanks).
+    /// When no square is forced outright, hidden singles take over: a value legal in exactly one blank of
+    /// a unit is placed there without branching, and a unit that can no longer host a value it still needs
+    /// fails the fill immediately — both deductions keep every completion, so the fill result is unaffected.
     /// <paramref name="p_mode"/> decides the candidate order per square.
     /// The masks must describe <paramref name="p_arr"/> on entry (see <see cref="LoadMasks"/>).
     /// They are kept in sync while filling, but are stale after a completed fill — enter via <see cref="FillRemaining"/>.
@@ -360,18 +410,44 @@ public sealed class Sudoku
     {
         int a_bestIdx = -1, a_bestCount = int.MaxValue;
         uint a_bestFreeMask = 0;
+        for (int i = 0; i < rows; ++i)
+        {
+            rowOnceMask[i] = 0; colOnceMask[i] = 0; segOnceMask[i] = 0;
+            rowTwiceMask[i] = 0; colTwiceMask[i] = 0; segTwiceMask[i] = 0;
+        }
         for (int i = 0; i < squares; ++i)
         {
             if (p_arr[i] != 0) continue;
             uint a_freeMask = ~(rowMask[rowOf[i]] | colMask[colOf[i]] | segMask[segOf[i]]) & fullMask;
             int a_count = PopCount(a_freeMask);
             if (a_count == 0) return false;
+            // values seen in one blank of the unit so far vs in several — singles are once & ~twice
+            rowTwiceMask[rowOf[i]] |= rowOnceMask[rowOf[i]] & a_freeMask; rowOnceMask[rowOf[i]] |= a_freeMask;
+            colTwiceMask[colOf[i]] |= colOnceMask[colOf[i]] & a_freeMask; colOnceMask[colOf[i]] |= a_freeMask;
+            segTwiceMask[segOf[i]] |= segOnceMask[segOf[i]] & a_freeMask; segOnceMask[segOf[i]] |= a_freeMask;
             if (a_count >= a_bestCount) continue;
             a_bestCount = a_count; a_bestIdx = i; a_bestFreeMask = a_freeMask;
             // a forced square cannot be beaten, except by a dead one ending the fill anyway
             if (a_bestCount == 1) break;
         }
         if (a_bestIdx == -1) return true;
+        // only a complete scan fully accumulates the unit masks; a naked single needs no hidden one anyway
+        if (a_bestCount > 1)
+            for (int i = 0; i < rows; ++i)
+            {
+                if ((fullMask & ~(rowMask[i] | rowOnceMask[i])) != 0) return false;
+                if ((fullMask & ~(colMask[i] | colOnceMask[i])) != 0) return false;
+                if ((fullMask & ~(segMask[i] | segOnceMask[i])) != 0) return false;
+                uint a_hiddenMask = rowOnceMask[i] & ~rowTwiceMask[i];
+                int[] a_unitOf = rowOf;
+                if (a_hiddenMask == 0) { a_hiddenMask = colOnceMask[i] & ~colTwiceMask[i]; a_unitOf = colOf; }
+                if (a_hiddenMask == 0) { a_hiddenMask = segOnceMask[i] & ~segTwiceMask[i]; a_unitOf = segOf; }
+                if (a_hiddenMask == 0) continue;
+                a_bestFreeMask = a_hiddenMask & ~(a_hiddenMask - 1);
+                a_bestIdx = Search_HiddenSingle(p_arr, a_unitOf, i, a_bestFreeMask);
+                a_bestCount = 1;
+                break;
+            }
         int a_row = rowOf[a_bestIdx], a_col = colOf[a_bestIdx], a_seg = segOf[a_bestIdx];
         for (int a_input, i = 0; i < rows; ++i)
         {
@@ -388,6 +464,24 @@ public sealed class Sudoku
             p_arr[a_bestIdx] = 0;
         }
         return false;
+    }
+
+    /// <summary>
+    /// Locates the one blank square of a unit that can still take the value of <paramref name="p_valueBit"/>;
+    /// only called after the unit scan in <see cref="FillConstrained"/> proved exactly one such square exists.
+    /// </summary>
+    /// <param name="p_arr">The grid being filled.</param>
+    /// <param name="p_unitOf">Square→unit lookup of the unit's type: <see cref="rowOf"/>, <see cref="colOf"/> or <see cref="segOf"/>.</param>
+    /// <param name="p_unit">Index of the unit within its type.</param>
+    /// <param name="p_valueBit">Bit of the hidden single's value.</param>
+    /// <returns>Index of the found square.</returns>
+    private int Search_HiddenSingle(in int[] p_arr, in int[] p_unitOf, in int p_unit, in uint p_valueBit)
+    {
+        for (int i = 0; i < squares; ++i)
+            if (p_arr[i] == 0 && p_unitOf[i] == p_unit
+                && (~(rowMask[rowOf[i]] | colMask[colOf[i]] | segMask[segOf[i]]) & p_valueBit) != 0)
+                return i;
+        throw new InvalidOperationException("hidden single not found, logic error");
     }
 
     /// <summary>
@@ -425,47 +519,6 @@ public sealed class Sudoku
     }
 
     #endregion
-
-    /// <summary>
-    /// True when <see cref="puzzle"/> stays uniquely solvable after blanking <paramref name="p_idx"/>:
-    /// the puzzle was unique before the removal, so a second solution would have to place a
-    /// different value at that square — only the other conflict-free candidates there are probed for solvability.
-    /// </summary>
-    /// <param name="p_idx">Index of the square just blanked in <see cref="puzzle"/>.</param>
-    /// <param name="p_removed">The <see cref="solution"/> value the square held before blanking.</param>
-    /// <returns>True when no alternative value at <paramref name="p_idx"/> completes the puzzle.</returns>
-    private bool UniqueWithout(in int p_idx, in int p_removed)
-    {
-        Copy(puzzle, altSolution);
-        LoadMasks(altSolution);
-        // captured before the probes below rebuild the masks
-        uint a_usedMask = rowMask[rowOf[p_idx]] | colMask[colOf[p_idx]] | segMask[segOf[p_idx]];
-        for (int a_input = 1; a_input <= rows; ++a_input)
-        {
-            if (a_input == p_removed || (a_usedMask & 1u << a_input) != 0) continue;
-            altSolution[p_idx] = a_input;
-            if (FillRemaining(altSolution, FillMode.NoInput)) return false;
-            // a failed fill backtracks every square it set, so only p_idx needs resetting
-            altSolution[p_idx] = 0;
-        }
-        return true;
-    }
-
-    /// <summary>
-    /// Blanks random squares one at a time, keeping only removals that preserve uniqueness (via <see cref="UniqueWithout"/>), until <see cref="remove"/> blanks are reached or no square can be removed.
-    /// </summary>
-    private void Prune()
-    {
-        int[] a_indexes = new int[squares];
-        InitRandom(random, a_indexes, squares, false);
-        Copy(solution, puzzle); Removed = 0;
-        for (int a_input, i = 0; i < a_indexes.Length && Removed < remove; ++i)
-        {
-            a_input = puzzle[a_indexes[i]]; if (a_input == 0) continue;
-            puzzle[a_indexes[i]] = 0; if (UniqueWithout(a_indexes[i], a_input)) { ++Removed; continue; }
-            puzzle[a_indexes[i]] = a_input;
-        }
-    }
 
     #region Solve
 
