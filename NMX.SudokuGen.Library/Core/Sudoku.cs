@@ -56,9 +56,11 @@ public sealed class Sudoku
     private readonly uint[] candMask;
     private readonly uint[] rowBlockMask, colBlockMask, rowBlockElim, colBlockElim;
     private readonly uint[] rowConfMask, colConfMask;
+    private readonly uint[] nakedMasks;
     private readonly uint fullMask;
     private readonly int[] rowOf, colOf, segOf;
     private readonly int[] rowBlockOf, colBlockOf;
+    private readonly int[] unitSquares, nakedSquares;
     private readonly Random random;
     private readonly int trialBudget;
     private int fillNodesLeft;
@@ -123,13 +125,20 @@ public sealed class Sudoku
         segOf = new int[squares];
         rowBlockOf = new int[squares];
         colBlockOf = new int[squares];
-        for (int i = 0; i < squares; ++i)
+        unitSquares = new int[3 * rows * rows];
+        nakedSquares = new int[rows];
+        nakedMasks = new uint[rows];
+        int[] a_unitFill = new int[3 * rows];
+        for (int a_unit, i = 0; i < squares; ++i)
         {
             rowOf[i] = i / rows;
             colOf[i] = i % rows;
             segOf[i] = i / squaresInSegmentRow * rank + i % rows / rank;
             rowBlockOf[i] = rowOf[i] * rank + colOf[i] / rank;
             colBlockOf[i] = colOf[i] * rank + rowOf[i] / rank;
+            a_unit = rowOf[i]; unitSquares[a_unit * rows + a_unitFill[a_unit]++] = i;
+            a_unit = rows + colOf[i]; unitSquares[a_unit * rows + a_unitFill[a_unit]++] = i;
+            a_unit = 2 * rows + segOf[i]; unitSquares[a_unit * rows + a_unitFill[a_unit]++] = i;
         }
     }
 
@@ -441,7 +450,8 @@ public sealed class Sudoku
     /// and a grid is abandoned the moment any blank or needed unit value runs out of options.
     /// Deductions escalate lazily: only when nothing is forced are locked candidates derived
     /// (see <see cref="Derive_BlockEliminations"/>) and the scan repeated on the narrowed candidates,
-    /// so easy grids never pay for the expensive deduction. All deductions keep every completion.
+    /// then naked pairs (see <see cref="Search_NakedPairs"/>) as the last rung before guessing,
+    /// so easy grids never pay for the expensive deductions. All deductions keep every completion.
     /// When guessing is unavoidable, a two-homes value (see <see cref="FillValuePair"/>) is preferred over a square with 3+ candidates.
     /// <paramref name="p_mode"/> decides the candidate order per square.
     /// The masks must describe <paramref name="p_arr"/> on entry and are stale after a completed fill —
@@ -466,6 +476,16 @@ public sealed class Sudoku
             Derive_BlockEliminations(p_arr);
             if (!Scan_Candidates(p_arr, true, ref a_bestIdx, ref a_bestCount, ref a_bestFreeMask)) return false;
             if (a_bestCount > 1 && !Search_UnitForced(p_arr, ref a_bestIdx, ref a_bestCount, ref a_bestFreeMask)) return false;
+            // still nothing — escalate once more to naked pairs, rescanning only when they removed candidates
+            if (a_bestCount > 1)
+            {
+                if (!Search_NakedPairs(p_arr, out bool a_eliminated)) return false;
+                if (a_eliminated)
+                {
+                    if (!Scan_Candidates(p_arr, true, ref a_bestIdx, ref a_bestCount, ref a_bestFreeMask)) return false;
+                    if (a_bestCount > 1 && !Search_UnitForced(p_arr, ref a_bestIdx, ref a_bestCount, ref a_bestFreeMask)) return false;
+                }
+            }
             // a value with exactly two homes in a unit is a narrower guess than a square with 3+ candidates
             if (a_bestCount > 2) for (int i = 0; i < rows; ++i)
             {
@@ -639,6 +659,46 @@ public sealed class Sudoku
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Naked pairs: two blanks of a unit sharing the same two candidates lock those values between them,
+    /// so both can be removed from every other square of the unit. Eliminations are applied directly to
+    /// <see cref="candMask"/>; the caller rescans when any were made.
+    /// </summary>
+    /// <param name="p_arr">The grid being filled; <see cref="candMask"/> must describe its blanks.</param>
+    /// <param name="p_eliminated">True when at least one candidate was removed.</param>
+    /// <returns>False when an elimination leaves a square without candidates
+    /// (e.g. a third square of the unit held the same bare pair).</returns>
+    private bool Search_NakedPairs(in int[] p_arr, out bool p_eliminated)
+    {
+        p_eliminated = false;
+        for (int i_unit = 0; i_unit < 3 * rows; ++i_unit)
+        {
+            int a_found = 0;
+            for (int a_idx, a_baseIdx = i_unit * rows, k = 0; k < rows; ++k)
+            {
+                a_idx = unitSquares[a_baseIdx + k];
+                if (p_arr[a_idx] != 0 || PopCount(candMask[a_idx]) != 2) continue;
+                nakedSquares[a_found] = a_idx; nakedMasks[a_found] = candMask[a_idx]; ++a_found;
+            }
+            for (int a = 0; a < a_found; ++a)
+                for (int b = a + 1; b < a_found; ++b)
+                {
+                    if (nakedMasks[a] != nakedMasks[b]) continue;
+                    uint a_lockMask = nakedMasks[a];
+                    for (int a_idx, a_baseIdx = i_unit * rows, k = 0; k < rows; ++k)
+                    {
+                        a_idx = unitSquares[a_baseIdx + k];
+                        if (p_arr[a_idx] != 0 || a_idx == nakedSquares[a] || a_idx == nakedSquares[b]) continue;
+                        uint a_newMask = candMask[a_idx] & ~a_lockMask;
+                        if (a_newMask == candMask[a_idx]) continue;
+                        if (a_newMask == 0) return false;
+                        candMask[a_idx] = a_newMask; p_eliminated = true;
+                    }
+                }
+        }
+        return true;
     }
 
     /// <summary>
