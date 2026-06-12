@@ -2,6 +2,9 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
+    <!-- netstandard2.1 defaults to C# 8; newer language features are compiler-only sugar, safe for the Unity DLL drop -->
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>SudokuGenLib</AssemblyName>
     <Nullable>enable</Nullable>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!-- deliberately undocumented self-evident members should not warn -->
