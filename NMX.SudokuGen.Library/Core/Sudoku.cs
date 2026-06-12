@@ -73,14 +73,14 @@ public sealed class Sudoku
     {
         if (p_rank < minRank || p_rank > maxRank)
             throw new ArgumentException($"rank must be within {minRank}..{maxRank}", nameof(p_rank));
-        if (p_remove < 0 || p_remove > squares)
-            throw new ArgumentException($"blanks must be within 0 .. rank^4". );
         rank = p_rank;
-        remove = p_remove;
-        random = p_random;
         rows = rank * rank;
         squares = rows * rows;
         squaresInSegmentRow = rows * rank;
+        if (p_remove < 0 || p_remove > squares)
+            throw new ArgumentException($"blanks must be within 0 .. rank^4", nameof(p_remove));
+        remove = p_remove;
+        random = p_random;
         puzzle = new int[squares];
         solution = new int[squares];
         altSolution = new int[squares];
