@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Threading.Tasks;
 
 public static class SudokuGen
 {
@@ -16,7 +17,7 @@ public static class SudokuGen
         cmdHelp1 = "help", cmdHelp2 = "--help", cmdHelp3 = "-h",
         cmdCreate = "create", cmdSolve = "solve", cmdShuffle = "shuffle",
         fgvRank = "-r", fgvBlanks = "-b", fgvCount = "-c", fgvSeed = "-s", fgvInput = "-i", fgvOutput = "-o",
-        flgSolutionOutput = "-osol", flgMinimalOutput = "-omin", flgBoardOutput = "-oboard", flgExactBlanks = "-exact",
+        flgSolutionOutput = "-osol", flgPuzzleOutput = "-opuz", flgMinimalOutput = "-omin", flgBoardOutput = "-oboard", flgExactBlanks = "-exact", flgParallel = "-para",
         valBlanksMax = "max", valMinRank = "2", valMaxRank = "5",
         expRank = "4", expBlanks = "120", expTimes = "10", expSeed = "777",
         expInput = "./inputs.txt", expOutput = "./outputs.txt",
@@ -43,10 +44,12 @@ public static class SudokuGen
                 6. {{fgvOutput}} {{"\t"}}: Specify output .txt file. Where Command = { {{cmdCreate}}, {{cmdSolve}}, {{cmdShuffle}} }.
 
             flags without value -
-                1. {{flgSolutionOutput}} {{"\t"}}: Include the solution. Where Command = { {{cmdCreate}}, {{cmdShuffle}} }.
-                2. {{flgMinimalOutput}} {{"\t"}}: Give minimal output. Where Command = { {{cmdCreate}}, {{cmdSolve}}, {{cmdShuffle}} }.
-                3. {{flgBoardOutput}} {{"\t"}}: Draw output in a formatted board. Where Command = { {{cmdCreate}}, {{cmdSolve}}, {{cmdShuffle}} }.
-                4. {{flgExactBlanks}} {{"\t"}}: Skip the internal search budget. Can run very long at high ranks. Where Command = { {{cmdCreate}} }.
+                1. {{flgPuzzleOutput}} {{"\t"}}: Include the puzzle. Where Command = { {{cmdSolve}} }.
+                2. {{flgSolutionOutput}} {{"\t"}}: Include the solution. Where Command = { {{cmdCreate}}, {{cmdShuffle}} }.
+                3. {{flgMinimalOutput}} {{"\t"}}: Give minimal output. Where Command = { {{cmdCreate}}, {{cmdSolve}}, {{cmdShuffle}} }.
+                4. {{flgBoardOutput}} {{"\t"}}: Draw output in a formatted board. Where Command = { {{cmdCreate}}, {{cmdSolve}}, {{cmdShuffle}} }.
+                5. {{flgExactBlanks}} {{"\t"}}: Skip the internal search budget. Can run very long at high ranks. Where Command = { {{cmdCreate}} }.
+                6. {{flgParallel}} {{"\t"}}: Spread a batch (Count > 1) across CPU cores. Where Command = { {{cmdCreate}}, {{cmdSolve}}, {{cmdShuffle}} }.
 
             examples -
                 1. {{cmdCreate}}
@@ -63,7 +66,7 @@ public static class SudokuGen
         in bool p_showPuzzle, in bool p_showSolution, in bool p_drawBoard)
     {
         StringBuilder a_visual = new();
-        if (p_showRank) _ = a_visual.Append($"rank={p_sudoku.rank}\tgiven={p_sudoku.squares - p_sudoku.Removed}\ttime={p_time}\n");
+        if (p_showRank) _ = a_visual.Append($"\trank={p_sudoku.rank}\tgiven={p_sudoku.squares - p_sudoku.Removed}\ttime={p_time}\n");
         if (p_drawBoard)
         {
             int a_rows = p_sudoku.rows, a_squares = p_sudoku.squares;
@@ -83,14 +86,14 @@ public static class SudokuGen
                 }
             }
             if (!p_showRank) a_visual.Append('\n');
-            if (p_showPuzzle) { a_visual.Append("--puzz--\n"); DrawBoard(p_sudoku.Puzzle); }
-            if (p_showSolution) { a_visual.Append("--soln--\n"); DrawBoard(p_sudoku.Solution); }
+            if (p_showPuzzle) { a_visual.Append("--puz--\n"); DrawBoard(p_sudoku.Puzzle); }
+            if (p_showSolution) { a_visual.Append("--sol--\n"); DrawBoard(p_sudoku.Solution); }
         }
         else
         {
-            if (p_showPuzzle) a_visual.Append($"puzz=({Utility.GetPuzzleCode(p_sudoku.Puzzle)})");
+            if (p_showPuzzle) a_visual.Append($"puz=({Utility.GetPuzzleCode(p_sudoku.Puzzle)})");
             if (p_showPuzzle && p_showSolution) a_visual.Append('\n');
-            if (p_showSolution) a_visual.Append($"soln=({Utility.GetPuzzleCode(p_sudoku.Solution)})");
+            if (p_showSolution) a_visual.Append($"sol=({Utility.GetPuzzleCode(p_sudoku.Solution)})");
             a_visual.Append('\n');
         }
         return a_visual.ToString();
@@ -105,14 +108,14 @@ public static class SudokuGen
         void Error_ValueForFlag(in string p_flag, in string p_value)
             => PrintError($"invalid value '{p_value}' for flag '{p_flag}'");
         CLAP a_clap = new([cmdCreate, cmdSolve, cmdShuffle, cmdVersion1, cmdVersion2, cmdVersion3, cmdHelp1, cmdHelp2, cmdHelp3],
-            [flgMinimalOutput, flgBoardOutput, flgSolutionOutput, flgExactBlanks],
+            [flgMinimalOutput, flgBoardOutput, flgSolutionOutput, flgPuzzleOutput, flgExactBlanks, flgParallel],
             [fgvRank, fgvBlanks, fgvCount, fgvSeed, fgvInput, fgvOutput]);
         (bool a_success, string a_cmd_or_msg) = a_clap.Process(p_inputs);
         if (!a_success) { PrintError($"{a_cmd_or_msg} (try '{cmdHelp1}')"); return 1; }
         int a_rank = dftRank, a_times = dftTimes;
         int? a_blanks = null, a_seed = null;
         bool a_blanksMax = false;
-        bool a_minimalOutput = false, a_boardOutput = false, a_solutionOutput = false, a_exactBlanks = false;
+        bool a_minimalOutput = false, a_boardOutput = false, a_solutionOutput = false, a_puzzleOutput = false, a_exactBlanks = false, a_parallel = false;
         string? a_inputPath = null, a_outputPath = null;
         foreach (KeyValuePair<string, bool> a_kvp in a_clap.flags)
         {
@@ -123,6 +126,11 @@ public static class SudokuGen
                     if (a_cmd_or_msg is not (cmdCreate or cmdShuffle))
                     { Error_FlagForCommand(a_kvp.Key, a_cmd_or_msg); return 1; }
                     a_solutionOutput = true;
+                    break;
+                case flgPuzzleOutput:
+                    if (a_cmd_or_msg is not cmdSolve)
+                    { Error_FlagForCommand(a_kvp.Key, a_cmd_or_msg); return 1; }
+                    a_puzzleOutput = true;
                     break;
                 case flgMinimalOutput:
                     if (a_cmd_or_msg is not (cmdCreate or cmdSolve or cmdShuffle))
@@ -138,6 +146,11 @@ public static class SudokuGen
                     if (a_cmd_or_msg is not cmdCreate)
                     { Error_FlagForCommand(a_kvp.Key, a_cmd_or_msg); return 1; }
                     a_exactBlanks = true;
+                    break;
+                case flgParallel:
+                    if (a_cmd_or_msg is not (cmdCreate or cmdSolve or cmdShuffle))
+                    { Error_FlagForCommand(a_kvp.Key, a_cmd_or_msg); return 1; }
+                    a_parallel = true;
                     break;
                 default: PrintError($"unhandled flag '{a_kvp.Key}'"); return 1;
             }
@@ -217,42 +230,68 @@ public static class SudokuGen
         switch (a_cmd_or_msg)
         {
             case cmdCreate:
-                for (int i = 0; i < a_times; ++i)
+            {
+                // each puzzle is an independent job; -par spreads the batch across cores, output stays in order
+                string[] a_rendered = new string[a_times];
+                bool[] a_failed = new bool[a_times];
+                string RenderCreate(int p_i)
                 {
+                    StringBuilder a_sb = new(a_times > 1 ? $"{1 + p_i}. " : ">> ");
                     try
                     {
-                        _ = a_output.Append(a_minimalOutput ? "> " : $"{1 + i}.\t");
                         Stopwatch a_watch = Stopwatch.StartNew();
                         Sudoku a_sudoku = a_seed is int a_seedNum
                             ? Sudoku.Create(a_rank, a_blanksFinal, a_seedNum, a_exactBlanks)
                             : Sudoku.Create(a_rank, a_blanksFinal, a_exactBlanks);
-                        _ = a_output.Append(GetSudokuVisual(a_sudoku, $"{a_watch.Elapsed.TotalMilliseconds}ms",
+                        a_sb.Append(GetSudokuVisual(a_sudoku, $"{a_watch.Elapsed.TotalMilliseconds}ms",
                             !a_minimalOutput, true, a_solutionOutput, a_boardOutput));
                     }
-                    catch (Exception p_ex) { _ = a_output.Append($"Error: {p_ex.Message}\n"); a_anyFailed = true; }
+                    catch (Exception p_ex) { a_sb.Append($"Error: {p_ex.Message}\n"); a_failed[p_i] = true; }
+                    return a_sb.ToString();
                 }
+                Stopwatch a_batch = Stopwatch.StartNew();
+                if (a_parallel && a_times > 1) Parallel.For(0, a_times, p_i => a_rendered[p_i] = RenderCreate(p_i));
+                else for (int i = 0; i < a_times; ++i) a_rendered[i] = RenderCreate(i);
+                a_batch.Stop();
+                for (int i = 0; i < a_times; ++i) { a_output.Append(a_rendered[i]); if (a_failed[i]) a_anyFailed = true; }
+                // a single wall-clock total — meaningful where the per-puzzle times overlap under -para
+                if (!a_minimalOutput && a_times > 1) a_output.Append($">> \tTime={a_batch.Elapsed.TotalMilliseconds}ms\n");
                 WriteOutput();
                 break;
+            }
             case cmdSolve:
             case cmdShuffle:
+            {
                 List<string>? a_puzzCodes = ReadPuzzleCodes();
                 if (a_puzzCodes is null) return 1;
-                for (int i = 0; i < a_puzzCodes.Count; ++i)
+                int a_n = a_puzzCodes.Count;
+                string[] a_rendered = new string[a_n];
+                bool[] a_failed = new bool[a_n];
+                string RenderSolve(int p_i)
                 {
+                    StringBuilder a_sb = new(a_minimalOutput ? "> " : $"{1 + p_i}.\t");
                     try
                     {
-                        _ = a_output.Append(a_minimalOutput ? "> " : $"{1 + i}.\t");
                         Stopwatch a_watch = Stopwatch.StartNew();
-                        Sudoku a_sudoku = Sudoku.Solve(Utility.GetPuzzleArr(a_puzzCodes[i]));
+                        Sudoku a_sudoku = Sudoku.Solve(Utility.GetPuzzleArr(a_puzzCodes[p_i]));
                         if (a_cmd_or_msg is cmdShuffle)
                             a_sudoku = a_seed is int a_seedNum ? a_sudoku.Shuffle(a_seedNum) : a_sudoku.Shuffle();
-                        _ = a_output.Append(GetSudokuVisual(a_sudoku, $"{a_watch.Elapsed.TotalMilliseconds}ms",
-                            !a_minimalOutput, a_cmd_or_msg is cmdShuffle, a_cmd_or_msg is cmdSolve || a_solutionOutput, a_boardOutput));
+                        a_sb.Append(GetSudokuVisual(a_sudoku, $"{a_watch.Elapsed.TotalMilliseconds}ms",
+                            !a_minimalOutput, a_cmd_or_msg is cmdShuffle || a_puzzleOutput, a_cmd_or_msg is cmdSolve || a_solutionOutput, a_boardOutput));
                     }
-                    catch (Exception p_ex) { _ = a_output.Append($"Error: {p_ex.Message}\n"); a_anyFailed = true; }
+                    catch (Exception p_ex) { a_sb.Append($"Error: {p_ex.Message}\n"); a_failed[p_i] = true; }
+                    return a_sb.ToString();
                 }
+                Stopwatch a_batch = Stopwatch.StartNew();
+                if (a_parallel && a_n > 1) Parallel.For(0, a_n, p_i => a_rendered[p_i] = RenderSolve(p_i));
+                else for (int i = 0; i < a_n; ++i) a_rendered[i] = RenderSolve(i);
+                a_batch.Stop();
+                for (int i = 0; i < a_n; ++i) { a_output.Append(a_rendered[i]); if (a_failed[i]) a_anyFailed = true; }
+                // a single wall-clock total — meaningful where the per-puzzle times overlap under -para
+                if (!a_minimalOutput && a_n > 1) a_output.Append($"total={a_batch.Elapsed.TotalMilliseconds}ms\n");
                 WriteOutput();
                 break;
+            }
             case cmdVersion1:
             case cmdVersion2:
             case cmdVersion3:
