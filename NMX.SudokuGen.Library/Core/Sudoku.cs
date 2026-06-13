@@ -617,9 +617,10 @@ public sealed class Sudoku
             { a_twice |= a_once & colBlockMask[j]; a_once |= colBlockMask[j]; }
             colConfMask[i] = a_once & ~a_twice;
         }
-        for (int i_seg = 0; i_seg < rows; ++i_seg)
+        // band/stack from the loop counters, avoiding a per-segment div+mod by the runtime rank
+        for (int a_bandIdx = 0; a_bandIdx < rank; ++a_bandIdx)
+        for (int a_stackIdx = 0; a_stackIdx < rank; ++a_stackIdx)
         {
-            int a_bandIdx = i_seg / rank, a_stackIdx = i_seg % rank;
             uint a_once = 0, a_twice = 0;
             for (int j = 0; j < rank; ++j)
             {
