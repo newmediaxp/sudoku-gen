@@ -14,7 +14,7 @@ using System.Threading.Tasks;
 public static class SudokuGen
 {
     private const int dftRank = 3, dftTimes = 1;
-    private const string appName = nameof(SudokuGen),
+    private const string appName = nameof(SudokuGen), version = "1.0.0",
         cmdVersion1 = "version", cmdVersion2 = "--version", cmdVersion3 = "-v",
         cmdHelp1 = "help", cmdHelp2 = "--help", cmdHelp3 = "-h",
         cmdCreate = "create", cmdSolve = "solve", cmdShuffle = "shuffle",
@@ -298,8 +298,7 @@ public static class SudokuGen
             case cmdVersion1:
             case cmdVersion2:
             case cmdVersion3:
-                Version? a_version = typeof(SudokuGen).Assembly.GetName().Version;
-                Print($"v{a_version?.ToString(3) ?? "unknown"}");
+                Print($"v{version}");
                 break;
             case cmdHelp1:
             case cmdHelp2:

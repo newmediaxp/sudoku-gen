@@ -7,15 +7,24 @@
     <Nullable>enable</Nullable>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
-    <Version>0.1.0</Version>
+    <Version>1.0.0</Version>
+    <PackageId>NMX.SudokuGen.Library</PackageId>
     <Title>SudokuGen Library</Title>
     <Description>Sudoku generator and solver: unique-solution puzzle creation (optionally seeded), solving, validation, conflict reporting and isomorphic shuffling.</Description>
     <Authors>AnimaxNeil</Authors>
     <Company>New Media XP</Company>
     <Copyright>Copyright (c) 2024-2026 New Media XP</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageTags>sudoku</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/newmediaxp/sudoku-gen</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/newmediaxp/sudoku-gen.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>sudoku;puzzle;solver;generator</PackageTags>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <PropertyGroup Condition="'$(Configuration)'=='Release'">
     <DebugType>none</DebugType>
