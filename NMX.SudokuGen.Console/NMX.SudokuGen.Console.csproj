@@ -4,6 +4,7 @@
     <OutputType>Exe</OutputType>
     <AssemblyName>SudokuGen</AssemblyName>
     <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <PublishTrimmed>True</PublishTrimmed>
     <Title>SudokuGen Console</Title>
@@ -12,7 +13,8 @@
     <Description>CLI front-end for the SudokuGen library: create and solve sudoku puzzles from the command line.</Description>
     <Company>New Media XP</Company>
     <Authors>AnimaxNeil</Authors>
-    <Copyright>New Media XP</Copyright>
+    <Copyright>Copyright (c) 2024-2026 New Media XP</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)'=='Release'">

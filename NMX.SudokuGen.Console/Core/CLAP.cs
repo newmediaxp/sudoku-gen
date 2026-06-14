@@ -1,4 +1,6 @@
-﻿namespace NMX.CLAP
+﻿// Copyright (c) 2024-2026 New Media XP. Licensed under the MIT License.
+
+namespace NMX.CLAP
 {
     using System.Collections.Generic;
     using System.Linq;
