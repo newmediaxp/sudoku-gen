@@ -1,0 +1,34 @@
+name: publish
+
+# Publishes NMX.SudokuGen.Library to NuGet.org when a GitHub Release is published.
+# Bump <Version> in NMX.SudokuGen.Library.csproj and commit it before creating the release.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Test
+        run: dotnet test -c Release --no-restore
+
+      - name: Pack
+        run: dotnet pack NMX.SudokuGen.Library -c Release -o ./artifacts
+
+      - name: Push to NuGet.org
+        run: >
+          dotnet nuget push "./artifacts/*.nupkg"
+          --api-key "${{ secrets.NUGET_API_KEY }}"
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate
