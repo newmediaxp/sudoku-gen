@@ -1,6 +1,7 @@
 name: publish
 
-# Publishes NMX.SudokuGen.Library to NuGet.org when a GitHub Release is published.
+# Publishes NMX.SudokuGen.Library to NuGet.org on a published GitHub Release,
+# using Trusted Publishing (OIDC) — no stored API key.
 # Bump <Version> in NMX.SudokuGen.Library.csproj and commit it before creating the release.
 on:
   release:
@@ -10,6 +11,9 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # required: lets the job request the OIDC token for trusted publishing
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -26,9 +30,16 @@ jobs:
       - name: Pack
         run: dotnet pack NMX.SudokuGen.Library -c Release -o ./artifacts
 
+      - name: NuGet trusted-publishing login
+        id: login
+        uses: NuGet/login@v1
+        with:
+          # the NuGet.org account/username that owns the trusted-publishing policy
+          user: NewMediaXP
+
       - name: Push to NuGet.org
         run: >
           dotnet nuget push "./artifacts/*.nupkg"
-          --api-key "${{ secrets.NUGET_API_KEY }}"
+          --api-key "${{ steps.login.outputs.NUGET_API_KEY }}"
           --source https://api.nuget.org/v3/index.json
           --skip-duplicate
