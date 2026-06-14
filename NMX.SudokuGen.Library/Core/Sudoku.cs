@@ -1,4 +1,6 @@
-﻿namespace NMX.SudokuGen.Library.Core;
+﻿// Copyright (c) 2024-2026 New Media XP. Licensed under the MIT License.
+
+namespace NMX.SudokuGen.Library.Core;
 
 using System;
 using System.Collections.Generic;
@@ -14,7 +16,7 @@ using static Utility;
 /// </summary>
 public sealed class Sudoku
 {
-    public const int minRank = 2, maxRank = 5;
+    public const int minRank = 2, maxRank = 5, maxBlanks = -1;
 
     /// <summary>
     /// Search nodes a single solvability trial in <see cref="UniqueWithout"/> may spend before giving up on the removal.
@@ -91,9 +93,9 @@ public sealed class Sudoku
         rows = rank * rank;
         squares = rows * rows;
         squaresInSegmentRow = rows * rank;
-        if (p_remove < 0 || p_remove > squares)
+        if (p_remove < maxBlanks || p_remove > squares)
             throw new ArgumentException($"blanks must be within 0 .. rank^4", nameof(p_remove));
-        remove = p_remove;
+        remove = p_remove == maxBlanks ? squares : p_remove;
         random = p_random;
         trialBudget = p_exhaustive ? int.MaxValue : squares * trialBudgetPerSquare;
         puzzle = new int[squares];

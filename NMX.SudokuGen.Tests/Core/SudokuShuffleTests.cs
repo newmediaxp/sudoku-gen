@@ -1,3 +1,5 @@
+// Copyright (c) 2024-2026 New Media XP. Licensed under the MIT License.
+
 namespace NMX.SudokuGen.Tests.Core;
 using NMX.SudokuGen.Library.Core;
 using static NMX.SudokuGen.Library.Core.Utility;

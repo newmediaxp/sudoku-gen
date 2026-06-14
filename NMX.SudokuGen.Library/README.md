@@ -2,7 +2,7 @@
 
 `sudoku` `C#` `library` `dll`
 
-&copy; New Media XP  
+&copy; 2024-2026 New Media XP. Licensed under the [MIT License](../LICENSE).  
 |
 [website](https://www.newmediaxp.com)
 |
@@ -15,12 +15,6 @@
 
 A library written in C# to generate and solve sudoku puzzles.
 
-Grids are flat arrays of `squares = rows × rows` ints (`rows = rank²`), row by
-row, `0` meaning blank. Rank 2 = 4×4 up to rank 5 = 25×25 (`Sudoku.minRank` /
-`Sudoku.maxRank`). Generation cost grows steeply with rank: ranks 2-3 are
-instant, rank 4 ≈ 0.1 s, rank 5 ranges from ~18 s (few blanks) to many
-minutes (many blanks).
-
 ---
 
 ## API
@@ -28,39 +22,66 @@ minutes (many blanks).
 ```csharp
 using NMX.SudokuGen.Library.Core;
 
-// create: rank, desired blanks; unique solution guaranteed
-Sudoku a_sudoku = Sudoku.Create(3, 40);
-
-// seeded create: same seed => identical puzzle (e.g. puzzle of the day)
-Sudoku a_daily = Sudoku.Create(3, 40, 20260610);
-
-// the grids, read-only; a_sudoku.Removed = actual blank count
-IReadOnlyList<int> a_puzz = a_sudoku.Puzzle, a_soln = a_sudoku.Solution;
-
-// solve any puzzle; throws if invalid, duplicate inputs or no unique solution
-Sudoku a_solved = Sudoku.Solve(a_puzz);
-
-// shuffle: new equivalent puzzle (same difficulty/blanks, different look),
-// derived by segment/row/column permutations, digit relabelling and transpose;
-// the original is untouched; seeded overload available
-Sudoku a_variant = a_sudoku.Shuffle();
-
-// interactive play: why is the value at index 40 wrong?
-Sudoku.Conflict a_why = a_sudoku.FindConflicts(a_board, 40);
-// flags: Conflict.Row | Conflict.Column | Conflict.Segment (or None)
-// rule-clean but incorrect: a_board[i] != a_sudoku.Solution[i]
-
-// puzzle code: one char per square ('0' blank, '1'-'9', 'A' = 10), '.' between rows
-string a_code = Utility.GetPuzzleCode(a_puzz);
-int[] a_arr = Utility.GetPuzzleArr(a_code);
+Sudoku a_sudoku = Sudoku.Create(3, 40);            // rank 3 (9×9), up to 40 blanks
+Sudoku a_solved = Sudoku.Solve(a_sudoku.Puzzle);   // unique solution guaranteed
+string a_code   = Utility.GetPuzzleCode(a_sudoku.Puzzle);
 ```
 
-* Thread safety: no shared mutable state; instances are independent, so
-  parallel `Create`/`Solve`/`Shuffle` calls are safe. For background work
+### `Sudoku`
+
+Immutable puzzle/solution pair. Grids are flat, row-by-row lists of `squares` values, `0` = blank.
+
+#### Methods
+
+| Member          | Signature                                                              | Description                                                                                               |
+|-----------------|------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------|
+| `Create`        | `static Sudoku Create(int rank, int blanks, bool exhaustive = false)`  | New random puzzle with a unique solution. `blanks = maxBlanks` (-1) requests as many as possible. `exhaustive` skips the search budget for an exact blank count (can run very long at high ranks). |
+| `Create`        | `static Sudoku Create(int rank, int blanks, int seed, bool exhaustive = false)` | Seeded create — the same seed reproduces the same puzzle.                                        |
+| `Solve`         | `static Sudoku Solve(IReadOnlyList<int> puzzle)`                       | Solves a puzzle, rank inferred from its length. Throws if the input is invalid, conflicting, or has no unique solution. |
+| `Shuffle`       | `Sudoku Shuffle()`                                                     | Returns an equivalent variant (same rank, difficulty and blank count, different look). The original is untouched. |
+| `Shuffle`       | `Sudoku Shuffle(int seed)`                                            | Seeded shuffle.                                                                                            |
+| `FindConflicts` | `Conflict FindConflicts(int[] board, int index)`                      | Which units the value at `index` repeats in. A blank (`0`) never conflicts.                               |
+
+#### Properties
+
+| Member                | Type                 | Description                                                              |
+|-----------------------|----------------------|--------------------------------------------------------------------------|
+| `Puzzle`              | `IReadOnlyList<int>` | The puzzle grid, `0` = blank.                                            |
+| `Solution`            | `IReadOnlyList<int>` | The unique completed solution.                                           |
+| `Removed`             | `int`                | Actual blank count (can be less than `blanks` when more would break uniqueness). |
+| `rank`                | `int`                | Segment size, 2 (4×4) to 5 (25×25).                                      |
+| `rows`                | `int`                | Squares per row, column and segment (`rank²`).                           |
+| `squares`             | `int`                | Total squares (`rows²`).                                                 |
+| `remove`              | `int`                | Requested blank count (the `blanks` argument to `Create`).               |
+| `minRank` / `maxRank` | `const int`          | Allowed rank bounds, `2` and `5`.                                        |
+| `maxBlanks`           | `const int`          | Sentinel for `Create`'s `blanks`: `-1` means "as many as possible".      |
+
+### Conflict
+
+`[Flags]` enum, returned by `FindConflicts`.
+
+| Value     | Meaning                                  |
+|-----------|------------------------------------------|
+| `None`    | No conflict.                             |
+| `Row`     | Value repeats in the row.                |
+| `Column`  | Value repeats in the column.             |
+| `Segment` | Value repeats in the segment (box).      |
+
+A square that is rule-clean but still wrong (`board[i] != Solution[i]`) returns `None` — compare against `Solution` to catch those.
+
+### `Utility`
+
+| Member          | Signature                                              | Description                                                                                                          |
+|-----------------|--------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
+| `GetPuzzleCode` | `static string GetPuzzleCode(IReadOnlyList<int> grid)` | Encodes a grid as a puzzle code: one char per square (`0` blank, `1`-`9`, `A` = 10…), `.` between rows.              |
+| `GetPuzzleArr`  | `static int[] GetPuzzleArr(string code)`               | Parses a puzzle code back into a grid array; unrecognised characters are ignored.                                    |
+
+Also exposes general array/bit helpers used internally — `Copy`, `Same`, `Count`, `Swap2`, `Init`, `InitRandom`, `PopCount`.
+
+### Notes
+
+* **Thread safety** — no shared mutable state. Instances are independent, so parallel `Create` / `Solve` / `Shuffle` calls are safe. For background work,
   wrap calls in `Task.Run` at the call site.
-* Unity: copy the Release DLL into `Assets/Plugins/` and set
-  *Player Settings → Api Compatibility Level* to *.NET Standard 2.1*
-  (Unity 2021.2+). Pure computation — IL2CPP/AOT safe.
 
 ---
 

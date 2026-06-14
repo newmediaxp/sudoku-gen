@@ -2,19 +2,18 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
-    <!-- netstandard2.1 defaults to C# 8; newer language features are compiler-only sugar, safe for the Unity DLL drop -->
     <LangVersion>latest</LangVersion>
     <AssemblyName>SudokuGenLib</AssemblyName>
     <Nullable>enable</Nullable>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <!-- deliberately undocumented self-evident members should not warn -->
     <NoWarn>$(NoWarn);CS1591</NoWarn>
     <Version>0.1.0</Version>
     <Title>SudokuGen Library</Title>
     <Description>Sudoku generator and solver: unique-solution puzzle creation (optionally seeded), solving, validation, conflict reporting and isomorphic shuffling.</Description>
     <Authors>AnimaxNeil</Authors>
     <Company>New Media XP</Company>
-    <Copyright>New Media XP</Copyright>
+    <Copyright>Copyright (c) 2024-2026 New Media XP</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageTags>sudoku</PackageTags>
   </PropertyGroup>
 

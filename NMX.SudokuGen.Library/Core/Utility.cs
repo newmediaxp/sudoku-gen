@@ -1,4 +1,6 @@
-﻿namespace NMX.SudokuGen.Library.Core;
+﻿// Copyright (c) 2024-2026 New Media XP. Licensed under the MIT License.
+
+namespace NMX.SudokuGen.Library.Core;
 
 using System;
 using System.Collections.Generic;

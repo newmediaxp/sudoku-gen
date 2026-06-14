@@ -1,3 +1,5 @@
+// Copyright (c) 2024-2026 New Media XP. Licensed under the MIT License.
+
 namespace NMX.SudokuGen.Console.Core;
 
 using Library.Core;
@@ -37,7 +39,7 @@ public static class SudokuGen
 
             flags with value -
                 1. {{fgvRank}} {{"\t"}}: Specify rank of sudoku. Rank = { r | r ∈ N, {{valMinRank}} <= r <= {{valMaxRank}} } where Command = { {{cmdCreate}} }.
-                2. {{fgvBlanks}} {{"\t"}}: Specify target blanks in sudoku. Blanks = { b | b ∈ N, 0 <= b <= Rank^4 } or '{{valBlanksMax}}' where Command = { {{cmdCreate}} }.
+                2. {{fgvBlanks}} {{"\t"}}: Specify target blanks in sudoku. Blanks = { b | b ∈ N, -1 <= b <= r^4 } or max ( max = -1 = r^4 ) where Command = { {{cmdCreate}} }.
                 3. {{fgvCount}} {{"\t"}}: Specify number of sudokus. Count = { t | t ∈ N, t >= 1 } where Command = { {{cmdCreate}} }.
                 4. {{fgvSeed}} {{"\t"}}: Specify seed for reproducible results. Where Command = { {{cmdCreate}}, {{cmdShuffle}} }.
                 5. {{fgvInput}} {{"\t"}}: Specify input .txt file. Where Command = { {{cmdSolve}}, {{cmdShuffle}} }.
@@ -54,7 +56,7 @@ public static class SudokuGen
             examples -
                 1. {{cmdCreate}}
                 2. {{cmdCreate}} {{fgvRank}} {{expRank}} {{fgvBlanks}} {{expBlanks}} {{fgvSeed}} {{expSeed}}
-                3. {{cmdCreate}} {{fgvBlanks}} {{valBlanksMax}} {{flgExactBlanks}}
+                3. {{cmdCreate}} {{fgvBlanks}} -1 {{flgExactBlanks}}
                 4. {{cmdCreate}} {{fgvCount}} {{expTimes}} {{fgvOutput}} {{expOutput}}
                 5. {{cmdSolve}} {{expPuzz}}
                 6. {{cmdSolve}} {{fgvInput}} {{expInput}} {{fgvOutput}} {{expOutput}}
@@ -114,7 +116,6 @@ public static class SudokuGen
         if (!a_success) { PrintError($"{a_cmd_or_msg} (try '{cmdHelp1}')"); return 1; }
         int a_rank = dftRank, a_times = dftTimes;
         int? a_blanks = null, a_seed = null;
-        bool a_blanksMax = false;
         bool a_minimalOutput = false, a_boardOutput = false, a_solutionOutput = false, a_puzzleOutput = false, a_exactBlanks = false, a_parallel = false;
         string? a_inputPath = null, a_outputPath = null;
         foreach (KeyValuePair<string, bool> a_kvp in a_clap.flags)
@@ -169,9 +170,10 @@ public static class SudokuGen
                 case fgvBlanks:
                     if (a_cmd_or_msg is not cmdCreate)
                     { Error_FlagForCommand(a_kvp.Key, a_cmd_or_msg); return 1; }
+                    // -1 (Sudoku.maxBlanks) means "as many as possible"; it flows straight through to Create, with 'max' as a friendly alias
                     if (string.Equals(a_kvp.Value, valBlanksMax, StringComparison.OrdinalIgnoreCase))
-                    { a_blanksMax = true; break; }
-                    if (!int.TryParse(a_kvp.Value, out int a_blanksValue) || a_blanksValue < 0)
+                    { a_blanks = Sudoku.maxBlanks; break; }
+                    if (!int.TryParse(a_kvp.Value, out int a_blanksValue) || a_blanksValue < Sudoku.maxBlanks)
                     { Error_ValueForFlag(a_kvp.Key, a_kvp.Value); return 1; }
                     a_blanks = a_blanksValue;
                     break;
@@ -205,10 +207,11 @@ public static class SudokuGen
                 default: PrintError($"unhandled flag '{a_kvp.Key}'"); return 1;
             }
         }
-        // blanks bound, default and 'max' depend on the (possibly flag-set) rank, so resolve them last
+        // blanks default and upper bound depend on the (possibly flag-set) rank, so resolve them last;
+        // max (Sudoku.maxBlanks, -1) passes straight through and is resolved inside Create
         int a_squares = a_rank * a_rank * a_rank * a_rank;
-        if (a_blanks > a_squares) { Error_ValueForFlag(fgvBlanks, $"{a_blanks}"); return 1; }
-        int a_blanksFinal = a_blanksMax ? a_squares : a_blanks ?? a_rank * a_rank * a_rank;
+        int a_blanksFinal = a_blanks ?? a_rank * a_rank * a_rank;
+        if (a_blanksFinal > a_squares) { Error_ValueForFlag(fgvBlanks, $"{a_blanksFinal}"); return 1; }
         bool a_anyFailed = false;
         StringBuilder a_output = new(a_minimalOutput ? string.Empty : $"[ {DateTime.Now} ]\n");
         void WriteOutput()
