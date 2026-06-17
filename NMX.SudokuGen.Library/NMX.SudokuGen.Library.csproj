@@ -9,7 +9,7 @@
     <NoWarn>$(NoWarn);CS1591</NoWarn>
     <Version>1.0.0</Version>
     <PackageId>NMX.SudokuGen.Library</PackageId>
-    <Title>SudokuGen Library</Title>
+    <Title>SudokuGenLib</Title>
     <Description>Sudoku generator and solver: unique-solution puzzle creation (optionally seeded), solving, validation, conflict reporting and isomorphic shuffling.</Description>
     <Authors>AnimaxNeil</Authors>
     <Company>New Media XP</Company>
@@ -20,6 +20,7 @@
     <RepositoryUrl>https://github.com/newmediaxp/sudoku-gen.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>sudoku;puzzle;solver;generator</PackageTags>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
   </PropertyGroup>
 
   <ItemGroup>

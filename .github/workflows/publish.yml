@@ -1,15 +1,16 @@
 name: publish
 
-# Publishes NMX.SudokuGen.Library to NuGet.org on a published GitHub Release,
-# using Trusted Publishing (OIDC) — no stored API key.
-# Bump <Version> in NMX.SudokuGen.Library.csproj and commit it before creating the release.
+# On a published GitHub Release:
+#  - publishes NMX.SudokuGen.Library to NuGet.org (Trusted Publishing / OIDC, no stored key)
+#  - builds Native AOT executables of the console for each platform and attaches them to the release
+# Bump <Version> in the csprojs and commit before creating the release.
 on:
   release:
     types: [published]
   workflow_dispatch:
 
 jobs:
-  publish:
+  publish-nuget:
     runs-on: ubuntu-latest
     permissions:
       id-token: write   # required: lets the job request the OIDC token for trusted publishing
@@ -34,7 +35,6 @@ jobs:
         id: login
         uses: NuGet/login@v1
         with:
-          # the NuGet.org account/username that owns the trusted-publishing policy
           user: NewMediaXP
 
       - name: Push to NuGet.org
@@ -43,3 +43,51 @@ jobs:
           --api-key "${{ steps.login.outputs.NUGET_API_KEY }}"
           --source https://api.nuget.org/v3/index.json
           --skip-duplicate
+
+  console-binaries:
+    name: aot ${{ matrix.rid }}
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write   # required to upload assets to the release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest,   rid: win-x64,    ext: ".exe" }
+          - { os: windows-11-arm,   rid: win-arm64,  ext: ".exe" }
+          - { os: ubuntu-latest,    rid: linux-x64,  ext: "" }
+          - { os: ubuntu-24.04-arm, rid: linux-arm64, ext: "" }
+          - { os: macos-13,         rid: osx-x64,    ext: "" }
+          - { os: macos-latest,     rid: osx-arm64,  ext: "" }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install AOT prerequisites (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: Publish Native AOT
+        run: dotnet publish NMX.SudokuGen.Console -c Release -r ${{ matrix.rid }} -o publish
+
+      - name: Stage binary
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp "publish/SudokuGen${{ matrix.ext }}" "dist/SudokuGen-${{ matrix.rid }}${{ matrix.ext }}"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SudokuGen-${{ matrix.rid }}
+          path: dist/*
+
+      - name: Attach to release
+        if: github.event_name == 'release'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" dist/* --clobber

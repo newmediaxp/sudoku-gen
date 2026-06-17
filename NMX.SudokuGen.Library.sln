@@ -5,7 +5,7 @@ VisualStudioVersion = 17.11.35222.181
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NMX.SudokuGen.Library", "NMX.SudokuGen.Library\NMX.SudokuGen.Library.csproj", "{6C8DEC83-5DA6-4360-AE98-EA37DA19AC5A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NMX.SudokuGen.Console", "NMX.SudokuGen.Console\NMX.SudokuGen.Console.csproj", "{2C35BE37-2649-4442-9F70-6C849E072109}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NMX.SudokuGen.Console", "NMX.SudokuGen.Console\NMX.SudokuGen.Console.csproj", "{2C35BE37-2649-4442-9F70-6C849E072109}"
 	ProjectSection(ProjectDependencies) = postProject
 		{6C8DEC83-5DA6-4360-AE98-EA37DA19AC5A} = {6C8DEC83-5DA6-4360-AE98-EA37DA19AC5A}
 	EndProjectSection
@@ -16,7 +16,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		README.md = README.md
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NMX.SudokuGen.Tests", "NMX.SudokuGen.Tests\NMX.SudokuGen.Tests.csproj", "{265527B0-629D-42D0-86EB-24F9D2442917}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NMX.SudokuGen.Tests", "NMX.SudokuGen.Tests\NMX.SudokuGen.Tests.csproj", "{265527B0-629D-42D0-86EB-24F9D2442917}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
