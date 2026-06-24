@@ -84,9 +84,11 @@ public sealed class SudokuCreateTests
     public void Create_RankOutOfBounds_Throws(int p_rank)
         => Assert.Throws<ArgumentException>(() => Sudoku.Create(p_rank, 4));
 
-    [Fact]
-    public void Create_NegativeBlanks_Throws()
-        => Assert.Throws<ArgumentException>(() => Sudoku.Create(3, -1));
+    [Theory]
+    [InlineData(-2)]   // below the maxBlanks (-1) sentinel
+    [InlineData(82)]   // above squares (rank 3 -> 81)
+    public void Create_BlanksOutOfRange_Throws(int p_blanks)
+        => Assert.Throws<ArgumentException>(() => Sudoku.Create(3, p_blanks));
 
     [Fact]
     public void Create_Rank4_SolutionIsValidAndUniquelySolvable()
