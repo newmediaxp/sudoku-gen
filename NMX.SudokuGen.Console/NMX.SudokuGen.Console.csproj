@@ -9,7 +9,7 @@
     <PublishTrimmed>True</PublishTrimmed>
     <Title>SudokuGen Console</Title>
     <PublishAot>true</PublishAot>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <Description>CLI front-end for the SudokuGen library: create and solve sudoku puzzles from the command line.</Description>
     <Company>New Media XP</Company>
     <Authors>AnimaxNeil</Authors>
