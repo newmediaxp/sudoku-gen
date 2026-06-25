@@ -16,9 +16,9 @@ jobs:
       id-token: write   # required: lets the job request the OIDC token for trusted publishing
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.x'
 
@@ -60,9 +60,9 @@ jobs:
           - { os: macos-13,         rid: osx-x64,    ext: "" }
           - { os: macos-latest,     rid: osx-arm64,  ext: "" }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.x'
 
@@ -80,7 +80,7 @@ jobs:
           cp "publish/SudokuGen${{ matrix.ext }}" "dist/SudokuGen-${{ matrix.rid }}${{ matrix.ext }}"
 
       - name: Upload workflow artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: SudokuGen-${{ matrix.rid }}
           path: dist/*
